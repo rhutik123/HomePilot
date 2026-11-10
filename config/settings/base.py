@@ -153,6 +153,18 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
+# Celery Beat Periodic Task Schedules
+CELERY_BEAT_SCHEDULE = {
+    "process-daily-bill-reminders-8am": {
+        "task": "apps.reminders.tasks.process_daily_reminders",
+        "schedule": 86400.0,  # Runs daily (or crontab(hour=8, minute=0))
+    },
+    "check-overdue-bills-midnight": {
+        "task": "apps.reminders.tasks.check_and_update_overdue_bills",
+        "schedule": 86400.0,  # Runs daily (or crontab(hour=0, minute=5))
+    },
+}
+
 # AI Extraction Configuration
 BILL_EXTRACTION_BACKEND = os.getenv("BILL_EXTRACTION_BACKEND", "mock")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

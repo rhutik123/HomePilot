@@ -11,6 +11,12 @@
             <p class="text-sm text-slate-500">Track household payments, upcoming due dates, and reminders.</p>
         </div>
         <div class="flex items-center gap-2">
+            <a href="{% url 'dashboard_web:bill-upload' %}" class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm">
+                + Add / Upload Bill
+            </a>
+            <a href="{% url 'dashboard_web:household' %}" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+                Family Members
+            </a>
             <a href="{% url 'dashboard_web:bills-list' %}" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
                 View All Bills
             </a>

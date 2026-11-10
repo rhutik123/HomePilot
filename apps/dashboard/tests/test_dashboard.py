@@ -105,3 +105,32 @@ class TestDashboard:
         self.pending_bill.refresh_from_db()
         assert self.pending_bill.status == BillStatus.PAID
         assert self.pending_bill.paid_at is not None
+
+    def test_web_bill_upload_view_loads(self):
+        """Upload page renders successfully for authenticated user."""
+        self.client.force_login(self.user)
+        response = self.client.get("/bills/upload/")
+        assert response.status_code == status.HTTP_200_OK
+        assert b"Add Household Bill" in response.content
+
+    def test_web_household_view_loads(self):
+        """Household page renders members list."""
+        self.client.force_login(self.user)
+        response = self.client.get("/household/")
+        assert response.status_code == status.HTTP_200_OK
+        assert b"Household Members" in response.content
+
+    def test_web_household_add_member(self):
+        """Owner can add member via web form."""
+        new_user = User.objects.create_user(
+            username="new_family",
+            email="new_family@example.com",
+            password="Password123!",
+        )
+        self.client.force_login(self.user)
+        response = self.client.post(
+            "/household/",
+            {"username_or_email": "new_family@example.com", "role": "MEMBER"},
+        )
+        assert response.status_code == status.HTTP_302_FOUND
+        assert self.household.is_member(new_user)
