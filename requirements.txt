@@ -1,0 +1,28 @@
+# HomePilot Dependencies
+# Python >= 3.12 (Tested on Python 3.15)
+
+# Core Framework & APIs
+Django>=5.1,<7.0
+djangorestframework>=3.15
+django-cors-headers>=4.0
+
+# Database
+psycopg[binary]>=3.2
+
+# Background Tasks & Queue
+celery>=5.4
+redis>=5.0
+
+# Document & Image Processing
+pypdf>=5.0
+Pillow>=10.4
+
+# Data Validation & AI
+pydantic>=2.9
+
+# Environment Configuration
+python-dotenv>=1.0
+
+# Testing
+pytest>=8.0
+pytest-django>=4.9
