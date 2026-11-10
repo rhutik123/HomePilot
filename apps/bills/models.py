@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -15,6 +16,7 @@ class BillCategory(models.TextChoices):
 
 class BillStatus(models.TextChoices):
     PENDING = "PENDING", "Pending"
+    PARTIALLY_PAID = "PARTIALLY_PAID", "Partially Paid"
     PAID = "PAID", "Paid"
     OVERDUE = "OVERDUE", "Overdue"
 
@@ -86,6 +88,18 @@ class Bill(models.Model):
         db_index=True,
     )
     paid_at = models.DateTimeField(null=True, blank=True)
+    total_paid = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Total amount paid across all recorded payments.",
+    )
+    outstanding_balance = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Remaining unpaid balance.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -103,13 +117,54 @@ class Bill(models.Model):
     def __str__(self):
         return f"{self.provider_name} - {self.amount} {self.currency} (Due: {self.due_date})"
 
+    def save(self, *args, **kwargs):
+        # Initialize outstanding_balance on creation if not explicitly set
+        if not self.pk and self.outstanding_balance == Decimal("0.00") and self.total_paid == Decimal("0.00"):
+            self.outstanding_balance = self.amount or Decimal("0.00")
+        super().save(*args, **kwargs)
+
+    def recalculate_balance(self):
+        """
+        Recalculates total_paid and outstanding_balance from valid Payment records.
+        Updates status to PAID, PARTIALLY_PAID, OVERDUE, or PENDING.
+        """
+        if hasattr(self, "payments") and self.payments.exists():
+            paid_sum = sum((p.amount for p in self.payments.all()), Decimal("0.00"))
+        else:
+            paid_sum = self.total_paid or Decimal("0.00")
+
+        self.total_paid = paid_sum
+        self.outstanding_balance = max(Decimal("0.00"), self.amount - paid_sum)
+
+        if self.outstanding_balance == Decimal("0.00") and self.total_paid >= self.amount:
+            self.status = BillStatus.PAID
+            if not self.paid_at:
+                self.paid_at = timezone.now()
+            # Stop future pending reminders
+            if hasattr(self, "reminders"):
+                self.reminders.filter(is_sent=False).delete()
+        elif self.total_paid > Decimal("0.00"):
+            self.status = BillStatus.PARTIALLY_PAID
+            self.paid_at = None
+        else:
+            self.paid_at = None
+            if self.due_date < timezone.localdate():
+                self.status = BillStatus.OVERDUE
+            else:
+                self.status = BillStatus.PENDING
+
+        self.save(update_fields=["total_paid", "outstanding_balance", "status", "paid_at", "updated_at"])
+        return self
+
     def mark_as_paid(self):
-        """Marks the bill as paid, preserving timestamp."""
+        """Marks the bill as fully paid, updating financial balance and status."""
         self.status = BillStatus.PAID
         self.paid_at = timezone.now()
-        self.save(update_fields=["status", "paid_at", "updated_at"])
+        self.total_paid = self.amount
+        self.outstanding_balance = Decimal("0.00")
+        self.save(update_fields=["status", "paid_at", "total_paid", "outstanding_balance", "updated_at"])
 
-        # Stop future pending reminders (Phase 5 integration)
+        # Stop future pending reminders
         if hasattr(self, "reminders"):
             self.reminders.filter(is_sent=False).delete()
 

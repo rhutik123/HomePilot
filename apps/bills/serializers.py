@@ -59,12 +59,14 @@ class BillSerializer(serializers.ModelSerializer):
             "notes",
             "status",
             "paid_at",
+            "total_paid",
+            "outstanding_balance",
             "is_overdue",
             "documents",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "uploaded_by", "paid_at", "created_at", "updated_at")
+        read_only_fields = ("id", "uploaded_by", "status", "paid_at", "total_paid", "outstanding_balance", "created_at", "updated_at")
 
     def validate_amount(self, value):
         if value <= 0:
@@ -72,8 +74,23 @@ class BillSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        request = self.context.get("request")
         household = attrs.get("household") or (self.instance.household if self.instance else None)
-        assigned_to = attrs.get("assigned_to")
+
+        # Defect #3 Fix: Prevent household reassignment on update
+        if self.instance and "household" in attrs and attrs["household"] != self.instance.household:
+            raise serializers.ValidationError(
+                {"household": "Household cannot be changed once a bill is created."}
+            )
+
+        # Defect #3 Fix: On creation, verify the requesting user belongs to the target household
+        if not self.instance and household and request and getattr(request, "user", None) and request.user.is_authenticated:
+            if not household.is_member(request.user):
+                raise serializers.ValidationError(
+                    {"household": "You do not have permission to create bills for this household."}
+                )
+
+        assigned_to = attrs.get("assigned_to") if "assigned_to" in attrs else (self.instance.assigned_to if self.instance else None)
 
         # Ensure assigned user is an actual member of the household
         if household and assigned_to:
@@ -83,8 +100,8 @@ class BillSerializer(serializers.ModelSerializer):
                 )
 
         # Ensure issue_date is not after due_date if both are present
-        issue_date = attrs.get("issue_date") or (self.instance.issue_date if self.instance else None)
-        due_date = attrs.get("due_date") or (self.instance.due_date if self.instance else None)
+        issue_date = attrs.get("issue_date") if "issue_date" in attrs else (self.instance.issue_date if self.instance else None)
+        due_date = attrs.get("due_date") if "due_date" in attrs else (self.instance.due_date if self.instance else None)
         if issue_date and due_date and issue_date > due_date:
             raise serializers.ValidationError(
                 {"due_date": "Due date cannot be earlier than the bill issue date."}

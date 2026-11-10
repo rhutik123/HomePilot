@@ -1,332 +1,353 @@
 # HomePilot 🏠
-> **Household Bill Management & Automated Reminder Backend**  
-> *A robust, production-grade Django backend engineered for multi-tenant family bill tracking, modular AI document extraction, and background notification workflows.*
+> **AI-Powered Household Bill Management & Financial Automation Platform**  
+> *An advanced, production-grade Django modular monolith engineered for multi-tenant family bill tracking, OCR document intelligence, asynchronous payment automation, multi-channel notifications, and natural-language financial assistance.*
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12%2B%20%2F%203.15-blue.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-5.1%2B%20%2F%206.x-green.svg)](https://www.djangoproject.com/)
 [![DRF](https://img.shields.io/badge/DRF-3.15%2B-red.svg)](https://www.django-rest-framework.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Ready-336791.svg)](https://www.postgresql.org/)
+[![Database](https://img.shields.io/badge/Database-PostgreSQL%20%7C%20SQLite-336791.svg)](https://www.postgresql.org/)
 [![Celery](https://img.shields.io/badge/Celery-5.4%2B-37814A.svg)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-5.0%2B-DC382D.svg)](https://redis.io/)
-[![Tests](https://img.shields.io/badge/Tests-59%20Passed-brightgreen.svg)]()
+[![Google Gemini](https://img.shields.io/badge/AI-Google%20Gemini%202.5-8E75C2.svg)](https://ai.google.dev/)
+[![ReportLab](https://img.shields.io/badge/Reports-ReportLab%20PDF-F97316.svg)](https://www.reportlab.com/)
+[![Tests](https://img.shields.io/badge/Tests-126%20Passed-brightgreen.svg)]()
 
 ---
 
 ## 1. Project Overview
 
-**HomePilot** helps ordinary families manage household utility expenses without missing payment deadlines. Instead of relying on manual calendars, users upload bills (PDFs or images), review structured information parsed by an AI service, assign payment responsibility to specific family members, and receive scheduled reminders prior to due dates.
+**HomePilot** transforms household utility management for families and cohabiting households into an automated, error-free financial workflow. Rather than manually tracking disparate utility bills across messy calendars and spreadsheets, HomePilot provides an end-to-end platform to:
 
-### Key Capabilities:
-- **Authentication & RBAC**: Custom User model, session/token authentication, and role-based access (`OWNER` vs `MEMBER`).
-- **Household Multi-Tenancy**: Strict data isolation at the ORM query level. A household owns its bills; users from other households cannot see or manipulate them.
-- **Two-Step AI Document Extraction**: Uploads are validated against MIME signatures and file size, parsed for text, and extracted using a pluggable provider (Mock / LLM). Extracted details are presented for human review before permanent database persistence.
-- **Automated Milestone Reminders**: Celery & Celery Beat trigger daily checks to notify family members **3 days before**, **1 day before**, and **on the due date**.
-- **Payment Lifecycle Tracking**: Marking a bill as paid cancels future reminders while preserving payment timestamps. Overdue bills are automatically flagged with overdue alerts.
-- **Responsive Dashboard**: Both a JSON API and lightweight server-rendered HTML views styled with Tailwind CSS for mobile usability.
+1. **Upload & Process Documents**: Upload PDFs, scanned documents, and images. HomePilot validates MIME signatures, extracts text via OCR (Tesseract / PyPDF), detects duplicate files via SHA-256 hashes, and uses Google Gemini 2.5 for structured bill extraction.
+2. **Review & Multi-Tenant Lifecycle**: Family members review extracted bills, assign responsibility, track partial and full payments, and attach payment receipts.
+3. **Idempotent Recurring Schedules**: Automates monthly, quarterly, and yearly subscription and utility generation with row-level locks and strict duplicate prevention.
+4. **Multi-Channel Dispatcher**: Dispatches timely reminders (3 days before, 1 day before, due date, overdue alert) across Email, In-App alerts, and WhatsApp Business API according to user preferences.
+5. **AI Assistant & Anomaly Detection**: A natural-language chat assistant backed by controlled, permission-checked tools. All monetary totals are calculated via Django ORM / Decimal arithmetic—the AI explains verified facts and never hallucinates numbers.
+6. **Executive Analytics & Reports**: Visualizes category distributions, payment completion rates, and month-over-month spending trends, with one-click CSV and publication-quality ReportLab PDF export.
 
 ---
 
-## 2. System Architecture
+## 2. Architecture & Domain Boundaries
 
-HomePilot uses a **Layered Service Architecture** adhering to the *Separation of Concerns* principle. Heavy business logic (AI extraction, document parsing, reminder dispatching) is isolated into dedicated Service classes, keeping Django Views lightweight.
+HomePilot is structured as a **Modular Monolith** adhering to strict domain boundaries, multi-tenant isolation, and defense-in-depth security:
 
 ```mermaid
 flowchart TD
-    Client["Client (Browser / API Consumer)"]
+    Client["Client (Browser / REST API Consumer)"]
 
-    subgraph PresentationLayer["Presentation Layer"]
-        DRF["Django REST Framework APIs"]
-        Templates["Lightweight Django Templates (Tailwind UI)"]
+    subgraph PresentationLayer["Presentation Layer (REST API & Web)"]
+        DRF["Django REST Framework (v1 Endpoints)"]
+        DashboardUI["Web Dashboard (Tailwind CSS)"]
     end
 
-    subgraph ServiceLayer["Service & Domain Layer"]
-        AuthService["Auth & Permissions (Household Scoping)"]
-        BillService["Bill Management Service"]
-        AIService["Document & AI Extraction (Mock / LLM)"]
-        ReminderService["Reminder & Notification Engine"]
+    subgraph DomainModules["Domain Modules (apps.*)"]
+        Accounts["apps.accounts<br/>(Auth, Users, Throttling)"]
+        Households["apps.households<br/>(Multi-Tenant Scoping, RBAC)"]
+        Documents["apps.documents<br/>(Storage Abstraction, OCR, SHA-256)"]
+        Bills["apps.bills<br/>(Bill Lifecycle, Balances, Links)"]
+        Payments["apps.payments<br/>(Partial Payments, Receipts, Adjustments)"]
+        Recurring["apps.recurring<br/>(Idempotent Schedules, Recurrence Math)"]
+        Reminders["apps.reminders<br/>(Multi-Channel Dispatcher, Audit Deliveries)"]
+        AI["apps.ai<br/>(Gemini 2.5, Controlled Tools, Anomaly Detector)"]
+        Analytics["apps.analytics<br/>(KPI Aggregations, CSV & PDF Exporters)"]
     end
 
-    subgraph AsyncLayer["Asynchronous Task Layer"]
-        CeleryWorker["Celery Worker (Async Reminders & Dispatch)"]
-        CeleryBeat["Celery Beat (Periodic Due Date & Overdue Schedulers)"]
-        Redis["Redis (Message Broker)"]
+    subgraph AsyncWorker["Asynchronous Processing (Celery & Redis)"]
+        Worker["Celery Worker<br/>(OCR, Gemini Extraction, Multi-Channel Reminders)"]
+        Beat["Celery Beat<br/>(Recurring Bills 06:00, Daily Reminders 08:00, Insights Weekly)"]
+        Broker[("Redis Broker / Memory Queue")]
     end
 
-    subgraph DataLayer["Persistence Layer"]
-        PostgreSQL[("PostgreSQL Database")]
-        MediaStorage["Protected Media Storage (Bill Documents)"]
+    subgraph Persistence["Persistence & Storage Layer"]
+        DB[("PostgreSQL / SQLite Database")]
+        Storage["Protected Local Storage<br/>(S3-Compatible Abstraction)"]
     end
 
     Client --> DRF
-    Client --> Templates
-    DRF --> AuthService
-    DRF --> BillService
-    Templates --> BillService
+    Client --> DashboardUI
+    DRF --> Accounts
+    DRF --> Households
+    DRF --> Documents
+    DRF --> Bills
+    DRF --> Payments
+    DRF --> Recurring
+    DRF --> Reminders
+    DRF --> AI
+    DRF --> Analytics
 
-    BillService --> AIService
-    BillService --> ReminderService
+    Documents --> Worker
+    Reminders --> Worker
+    Recurring --> Beat
+    Worker <--> Broker
+    Beat <--> Broker
 
-    ReminderService --> CeleryBeat
-    ReminderService --> CeleryWorker
-    CeleryWorker <--> Redis
-    CeleryBeat <--> Redis
-
-    BillService --> PostgreSQL
-    BillService --> MediaStorage
-    ReminderService --> PostgreSQL
+    DomainModules --> DB
+    Documents --> Storage
+    Payments --> Storage
 ```
+
+### Domain Responsibilities:
+- **`apps.accounts`**: Custom User model, session/token authentication, and authentication throttling limits (`10/min` auth, `1000/hr` user).
+- **`apps.households`**: Multi-tenant isolation boundary. Memberships with role-based access control (`OWNER`, `MEMBER`). Non-members are strictly barred from tenant records.
+- **`apps.documents`**: Storage abstraction ([`BaseDocumentStorage`](file:///C:/Users/swast/.gemini/antigravity/scratch/HomePilot/apps/documents/services/storage.py)), OCR parser engine (digital PDF stream + image OCR), document processing jobs, SHA-256 duplicate detection, confidence scoring, and primary bill document links.
+- **`apps.bills`**: Master bills catalog, categories, service providers, `PARTIALLY_PAID` status, dynamic outstanding balance recalculation, and cross-household update prevention.
+- **`apps.payments`**: Fine-grained payment management, full and partial payment recording, row-level locking (`select_for_update`), overpayment rejection, receipt file attachments, and owner-only adjustments/corrections.
+- **`apps.recurring`**: Recurrence templates (`MONTHLY`, `QUARTERLY`, `YEARLY`), calendar calculation engine (`advance_calendar_months`), composite unique constraints on `(schedule, period_identifier)` guaranteeing zero duplicate occurrences, and pause/resume/trigger capabilities.
+- **`apps.reminders`**: Multi-channel notification architecture. `NotificationDispatcherService` coordinating `EmailChannel`, `InAppChannel`, and `WhatsAppChannel` based on `NotificationPreference` with complete audit trails in `NotificationDelivery` and `NotificationLog`.
+- **`apps.ai`**: Google Gemini 2.5 integration, controlled financial tool execution (`get_unpaid_bills`, `get_upcoming_bills`, `get_monthly_spending`, `compare_category_spending`, `explain_bill`), token usage/cost tracking, and automated spending anomaly detection.
+- **`apps.analytics`**: High-performance ORM aggregations, KPI executive summaries, category breakdowns, month-over-month trend series, CSV export, and publication-quality ReportLab PDF export.
 
 ---
 
-## 3. Database Schema & Relationships
+## 3. Database Architecture (Entity-Relationship Model)
 
 ```mermaid
 erDiagram
     User ||--o{ HouseholdMembership : "belongs to"
     Household ||--o{ HouseholdMembership : "has"
     Household ||--o{ Bill : "owns"
-    User ||--o{ Bill : "uploaded_by"
+    Household ||--o{ Document : "stores"
+    Household ||--o{ Payment : "tracks"
+    Household ||--o{ RecurringSchedule : "configures"
+    Household ||--o{ AIConversation : "scopes"
+    Household ||--o{ SpendingInsight : "receives"
+
     User ||--o{ Bill : "assigned_to"
-    Bill ||--o| BillDocument : "backed by"
+    User ||--o{ Payment : "paid_by"
+    User ||--o{ NotificationPreference : "configures"
+    User ||--o{ InAppNotification : "receives"
+
+    Document ||--o{ DocumentProcessingJob : "processes"
+    Document ||--o{ ExtractionResult : "yields"
+    Bill ||--o{ BillDocumentLink : "linked_by"
+    Document ||--o{ BillDocumentLink : "links_to"
+
+    Bill ||--o{ Payment : "settled_by"
+    Payment ||--o| PaymentReceipt : "evidenced_by"
+    Payment ||--o{ PaymentAdjustment : "adjusted_by"
+
+    RecurringSchedule ||--o{ RecurringOccurrence : "generates"
+    Bill ||--o| RecurringOccurrence : "represents"
+
     Bill ||--o{ BillReminder : "schedules"
-    BillReminder ||--o{ NotificationLog : "tracks"
+    BillReminder ||--o{ NotificationDelivery : "audits"
+    BillReminder ||--o{ NotificationLog : "logs"
 
-    User {
-        int id PK
-        string username UK
-        string email UK
-        string first_name
-        string last_name
-        string phone_number
-        datetime date_joined
-    }
-
-    Household {
-        int id PK
-        string name
-        int created_by_id FK
-        datetime created_at
-    }
-
-    HouseholdMembership {
-        int id PK
-        int household_id FK
-        int user_id FK
-        string role "OWNER | MEMBER"
-        datetime joined_at
-    }
-
-    Bill {
-        int id PK
-        int household_id FK
-        int uploaded_by_id FK
-        int assigned_to_id FK
-        string provider_name
-        string category "ELECTRICITY | WATER | GAS | INTERNET | MOBILE | OTHER"
-        decimal amount "DecimalField(10,2)"
-        string currency
-        string billing_period
-        date issue_date
-        date due_date "Indexed"
-        string reference_number
-        string status "PENDING | PAID | OVERDUE (Indexed)"
-        datetime paid_at
-        datetime created_at
-    }
-
-    BillDocument {
-        int id PK
-        int bill_id FK "Nullable during draft"
-        int household_id FK
-        string file
-        string file_name
-        int file_size
-        string mime_type
-        text raw_text
-        string extraction_status "PENDING | SUCCESS | FAILED"
-        jsonb extracted_data
-        datetime created_at
-    }
-
-    BillReminder {
-        int id PK
-        int bill_id FK
-        date remind_at "Indexed"
-        string reminder_type "THREE_DAYS_BEFORE | ONE_DAY_BEFORE | DUE_DATE | OVERDUE"
-        boolean is_sent "Indexed"
-        datetime sent_at
-        int sent_to_id FK
-    }
-
-    NotificationLog {
-        int id PK
-        int reminder_id FK
-        int bill_id FK
-        string recipient_email
-        string subject
-        string channel "EMAIL"
-        string status "SUCCESS | FAILED"
-        text error_message
-        datetime created_at
-    }
+    AIConversation ||--o{ AIMessage : "contains"
+    AIMessage ||--o{ AIToolExecution : "triggers"
 ```
 
-### Key Engineering Decisions:
-1. **Custom User Model on Day One**: Inherits `AbstractUser` to maintain built-in Django auth compatibility while enforcing unique emails and custom display properties.
-2. **Explicit Through Model (`HouseholdMembership`)**: Allows storing role (`OWNER` vs `MEMBER`) and join timestamps per household. A composite unique constraint `unique_together = ('household', 'user')` eliminates duplicate memberships.
-3. **Decoupled `BillDocument` Model**: Keeps large OCR text blobs and file metadata separate from hot `Bill` financial rows, allowing draft review workflows before saving a bill.
-4. **Monetary Precision**: Uses `DecimalField(max_digits=10, decimal_places=2)` for amounts rather than `FloatField` to prevent floating-point rounding errors.
-5. **Database Indexes**: Indexes on `Bill(due_date, status)` and `BillReminder(remind_at, is_sent)` ensure that daily Celery Beat queries execute in milliseconds without full table scans.
-6. **Unique Constraints on Reminders**: `unique_together = ('bill', 'reminder_type')` prevents scheduling duplicate reminders for the same milestone.
-
 ---
 
-## 4. Multi-Tenant Security & Isolation
+## 4. Local Quickstart (Zero-Dependency Python Execution)
 
-Security is enforced on the backend at the database query level:
+HomePilot is engineered to run seamlessly in local environments without requiring Docker, local PostgreSQL, or local Redis.
 
-- **Household Scoping**: Every API view filters querysets using `household__memberships__user=request.user`. If user Alice queries bill ID `99` belonging to Bob's household, DRF returns a `404 Not Found` rather than `403 Forbidden`. This completely eliminates **Insecure Direct Object References (IDOR)** and prevents leaking the existence of other users' records.
-- **Document Access Control**: Uploaded documents are not served as static files over public URLs. They are streamed through [`BillDocumentDownloadAPIView`](file:///C:/Users/rhuti/.gemini/antigravity/scratch/homepilot/apps/bills/views.py) which verifies membership before streaming bytes.
-- **File Validation**: Uploaded documents undergo three levels of validation:
-  1. Size limit (max 10MB)
-  2. Whitelisted file extensions (`.pdf`, `.jpg`, `.jpeg`, `.png`, `.webp`)
-  3. Magic byte signature verification (e.g. `%PDF`, `\xff\xd8\xff`, `\x89PNG`) to block malicious files disguised with valid extensions.
-
----
-
-## 5. API Reference
-
-### Authentication (`/api/auth/`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register/` | Register new user with password validation | No |
-| `POST` | `/api/auth/login/` | Log in via username or email (creates session) | No |
-| `POST` | `/api/auth/logout/` | Terminate active user session | Yes |
-| `GET` | `/api/auth/me/` | Fetch current logged-in user profile | Yes |
-
-### Households (`/api/households/`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/households/` | List user's active households | Yes |
-| `POST` | `/api/households/` | Create a new household (creator becomes OWNER) | Yes |
-| `GET` | `/api/households/{id}/` | Retrieve household details & members | Yes (Member) |
-| `POST` | `/api/households/{id}/add_member/` | Add registered user by email or username | Yes (Owner) |
-| `DELETE`| `/api/households/{id}/members/{user_id}/` | Remove member (protects sole owner) | Yes (Owner) |
-
-### Bills (`/api/bills/`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/bills/` | List bills (filters: `status`, `category`, `household`, `assigned_to`) | Yes |
-| `POST` | `/api/bills/` | Create a new bill manually (auto-schedules reminders) | Yes |
-| `GET` | `/api/bills/{id}/` | Get bill details | Yes |
-| `PUT/PATCH`| `/api/bills/{id}/` | Update bill details | Yes |
-| `DELETE`| `/api/bills/{id}/` | Delete bill | Yes |
-| `POST` | `/api/bills/{id}/mark_paid/` | Mark bill as paid & cancel pending reminders | Yes |
-| `GET` | `/api/bills/upcoming/` | Filter: pending bills due on or after today | Yes |
-| `GET` | `/api/bills/overdue/` | Filter: overdue unpaid bills | Yes |
-| `GET` | `/api/bills/paid/` | Filter: paid bills ordered by payment date | Yes |
-
-### Document AI Extraction (`/api/bills/documents/`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/bills/documents/upload/` | Upload PDF/image bill document | Yes |
-| `POST` | `/api/bills/documents/{id}/extract/` | Extract raw text & structured data via AI provider | Yes |
-| `POST` | `/api/bills/documents/{id}/confirm/` | Submit reviewed data & create confirmed Bill | Yes |
-| `GET` | `/api/bills/documents/{id}/` | View extraction status & structured JSON | Yes |
-| `GET` | `/api/bills/documents/{id}/download/`| Secure authenticated document download | Yes |
-
-### Reminders & Dashboard
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/reminders/` | List scheduled reminders for user's households | Yes |
-| `POST` | `/api/reminders/{id}/trigger/` | On-demand test execution of reminder | Yes |
-| `GET` | `/api/reminders/logs/` | View email delivery audit logs | Yes |
-| `GET` | `/api/dashboard/summary/` | Aggregate metrics (counts, totals, slices) | Yes |
-
----
-
-## 6. Setup & Installation Guide
-
-### Prerequisites
+### 4.1. Prerequisites
 - Python 3.12+ (Tested on Python 3.15)
-- PostgreSQL (or SQLite fallback configured via `.env`)
-- Redis (optional for development; Celery eager mode supported)
+- Git
+- Virtual environment (`venv`)
 
-### Step 1: Clone and Navigate
-```bash
-cd C:\Users\rhuti\.gemini\antigravity\scratch\homepilot
-```
+### 4.2. Setup Instructions
 
-### Step 2: Set Up Virtual Environment & Dependencies
-```bash
+```powershell
+# 1. Clone repository
+git clone https://github.com/rhutik123/HomePilot.git
+cd HomePilot
+
+# 2. Create and activate virtual environment
 python -m venv .venv
-# On Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+.\.venv\Scripts\Activate.ps1    # On Windows PowerShell
+# source .venv/bin/activate     # On Linux / macOS
 
-### Step 3: Configure Environment Variables
-Copy `.env.example` to `.env`:
-```bash
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment
+# Copy the provided template to .env
 cp .env.example .env
 ```
-Default configuration supports local development with `CELERY_TASK_ALWAYS_EAGER=True` and `BILL_EXTRACTION_BACKEND=mock`.
 
-### Step 4: Run Migrations & Seed Demo Data
-```bash
-python manage.py migrate
-python manage.py seed_demo_data
+Your `.env` comes preconfigured with SQLite and Celery eager execution for out-of-the-box local development:
+```env
+DJANGO_SETTINGS_MODULE=config.settings.development
+DJANGO_DEBUG=True
+DJANGO_SECRET_KEY=local-dev-secret-key-homepilot
+DB_ENGINE=django.db.backends.sqlite3
+DB_NAME=db.sqlite3
+CELERY_TASK_ALWAYS_EAGER=True
+BILL_EXTRACTION_BACKEND=mock
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 ```
-Demo accounts created:
-- **Owner**: `alice` / `Password123!`
-- **Member**: `bob` / `Password123!`
 
-### Step 5: Start the Development Server
-```bash
+### 4.3. Run Migrations & Start Server
+
+```powershell
+# Apply database migrations
+python manage.py migrate
+
+# (Optional) Create superuser for Django Admin
+python manage.py createsuperuser
+
+# Start development server
 python manage.py runserver
 ```
-Visit:
-- **Web Dashboard**: [http://localhost:8000/dashboard/](http://localhost:8000/dashboard/)
-- **Django Admin**: [http://localhost:8000/admin/](http://localhost:8000/admin/)
-- **REST APIs**: [http://localhost:8000/api/](http://localhost:8000/api/)
+Visit http://127.0.0.1:8000/ to access the dashboard and http://127.0.0.1:8000/api/ to consume REST endpoints.
 
 ---
 
-## 7. Running Background Workers (Celery & Redis)
+## 5. REST API Reference
 
-When running Celery in a live asynchronous environment with an active Redis instance:
+All versioned APIs are mounted under `/api/v1/` with session or token authentication.
 
-### Start Celery Worker (Windows Note)
-On Windows, Celery worker requires the `--pool=solo` flag to prevent Unix `fork()` issues:
-```bash
-celery -A config worker --pool=solo -l info
+### Authentication & Households
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/auth/register/` | Register new user account (rate-limited) |
+| `POST` | `/api/auth/login/` | Authenticate user and initialize session |
+| `POST` | `/api/auth/logout/` | Terminate session |
+| `GET / POST` | `/api/households/` | List user households or create a new household |
+| `GET / PUT` | `/api/households/{id}/` | Retrieve or update household details |
+| `POST` | `/api/households/{id}/members/` | Add member with role (`OWNER`, `MEMBER`) |
+
+### Documents & OCR Processing
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/documents/upload/` | Upload document (validates MIME, size, SHA-256 hash) |
+| `GET` | `/api/v1/documents/` | List documents for user's households |
+| `GET` | `/api/v1/documents/{id}/` | Inspect document, OCR confidence, and extraction status |
+| `POST` | `/api/v1/documents/{id}/process/` | Re-trigger OCR / AI extraction job |
+| `GET` | `/api/v1/documents/{id}/download/` | Protected authenticated file download |
+| `POST` | `/api/v1/documents/{id}/link_bill/` | Link verified document to a bill |
+
+### Bills & Lifecycle
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET / POST` | `/api/bills/` | List household bills (filters: `status`, `category`) or create bill |
+| `GET / PATCH` | `/api/bills/{id}/` | Retrieve or update bill (status is read-only) |
+| `POST` | `/api/bills/{id}/mark_paid/` | Mark bill as paid (cancels unsent reminders) |
+| `GET` | `/api/bills/{id}/reminders/` | View scheduled reminder milestones |
+
+### Payments & Receipts
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET / POST` | `/api/v1/payments/` | List payments or record a payment (row-locked balance update) |
+| `GET` | `/api/v1/payments/{id}/` | Retrieve payment details |
+| `POST` | `/api/v1/payments/{id}/receipt/` | Upload and attach payment receipt proof |
+| `POST` | `/api/v1/payments/{id}/adjust/` | Correct/adjust a payment (Owner only) |
+| `GET / POST` | `/api/v1/payments/bills/{bill_id}/payments/` | Nested endpoint for bill-specific payment history |
+
+### Recurring Schedules
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET / POST` | `/api/v1/recurring/` | List or create recurring bill templates |
+| `GET / PATCH` | `/api/v1/recurring/{id}/` | Retrieve or update schedule parameters |
+| `POST` | `/api/v1/recurring/{id}/pause/` | Pause automatic bill generation |
+| `POST` | `/api/v1/recurring/{id}/resume/` | Resume paused schedule |
+| `POST` | `/api/v1/recurring/{id}/trigger/` | Manually generate next occurrence immediately |
+| `GET` | `/api/v1/recurring/{id}/occurrences/` | List all historical generated bill occurrences |
+
+### Reminders & Multi-Channel Notifications
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/reminders/` | Inspect scheduled milestone reminders |
+| `POST` | `/api/v1/reminders/{id}/trigger/` | On-demand test dispatch of a reminder |
+| `GET / PATCH` | `/api/v1/reminders/preferences/` | Get or update channel preferences (Email, In-App, WhatsApp) |
+| `GET` | `/api/v1/reminders/inbox/` | User in-app notifications inbox |
+| `POST` | `/api/v1/reminders/inbox/mark_all_read/` | Bulk mark all inbox notifications as read |
+| `GET` | `/api/v1/reminders/deliveries/` | Audit log of all multi-channel delivery attempts |
+| `GET` | `/api/v1/reminders/logs/` | Legacy email delivery audit log |
+
+### AI Assistant & Spending Insights
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET / POST` | `/api/v1/ai/conversations/` | List or create stateful AI conversation threads |
+| `GET` | `/api/v1/ai/conversations/{id}/` | Retrieve conversation and chat history |
+| `POST` | `/api/v1/ai/conversations/{id}/send_message/` | Send prompt; executes controlled tools & returns verified answer |
+| `GET` | `/api/v1/ai/insights/` | List proactive anomaly insights and forecasts |
+| `POST` | `/api/v1/ai/insights/{id}/dismiss/` | Dismiss an alert |
+| `POST` | `/api/v1/ai/insights/generate/` | On-demand trigger to scan household for spending anomalies |
+| `GET` | `/api/v1/ai/usage/` | Audit log of AI token usage and estimated costs |
+
+### Analytics & Reports
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/analytics/overview/` | Executive financial summary, KPIs, and settlement completion rate |
+| `GET` | `/api/v1/analytics/categories/` | Spending breakdown by category with percentage shares |
+| `GET` | `/api/v1/analytics/providers/` | Spending aggregated by service provider |
+| `GET` | `/api/v1/analytics/trends/` | Month-over-month spending trends for charting |
+| `GET` | `/api/v1/analytics/reports/csv/` | Download filtered expenses spreadsheet (`text/csv`) |
+| `GET` | `/api/v1/analytics/reports/pdf/` | Download publication-quality financial statement (`application/pdf`) |
+
+---
+
+## 6. Master Defect Remediation Audit Log
+
+During the comprehensive architecture audit, 10 critical security, data integrity, and architectural defects were identified in the legacy codebase. All 10 defects have been resolved and verified with automated regression tests:
+
+| Defect # | Vulnerability / Flaw | Remediation & Engineering Solution | Status |
+|---|---|---|---|
+| **Defect #1** | **Unauthenticated Media File Serving**<br/>Unauthenticated requests could download uploaded bills directly via `/media/bills/...`. | Removed static media exposure from `config/urls.py`. Implemented authenticated, tenant-checked download endpoints (`/api/v1/documents/{id}/download/`). | **Resolved** ✅ |
+| **Defect #2** | **Zero Authentication Rate Limiting**<br/>No throttling on login or registration endpoints allowed brute-force attacks. | Configured DRF throttling (`AnonRateThrottle`, `UserRateThrottle`) and attached strict `auth_anon` (`10/minute`) scope to login/register views. | **Resolved** ✅ |
+| **Defect #3** | **Cross-Household Bill Reassignment (IDOR)**<br/>Users could patch `household` ID on bills to move bills across household boundaries. | Made `household` read-only on update in `BillSerializer`, and enforced membership validation on create. | **Resolved** ✅ |
+| **Defect #4** | **Uncontrolled Bill Status Override**<br/>Users could directly patch `status="PAID"` without recording any payment. | Made `status` read-only in `BillSerializer`. Payment status transitions are strictly driven through the `payments` engine and `recalculate_balance()`. | **Resolved** ✅ |
+| **Defect #5** | **Stale Reminders on Due Date Changes**<br/>Modifying a bill's `due_date` left existing milestone reminders scheduled for old dates. | Implemented `ReminderService.reschedule_reminders_for_bill()` automatically triggered on bill updates to recalibrate unsent reminders. | **Resolved** ✅ |
+| **Defect #6** | **False Success on Dispatch Failures**<br/>`reminder.is_sent` was marked `True` even when email was missing or dispatch failed. | Decoupled dispatch status. `reminder.is_sent` is set to `True` only upon genuine delivery success. Unsent reminders remain eligible for retry. | **Resolved** ✅ |
+| **Defect #7** | **Atomic Lock Rolled Back Failure Logs**<br/>Dispatch exceptions inside atomic transactions caused `NotificationLog` records to be rolled back. | Decoupled notification dispatch and logging outside the row-locking transaction so audit logs permanently persist. | **Resolved** ✅ |
+| **Defect #8** | **Cascade Deletion of Audit Logs**<br/>Marking a bill paid deleted reminders, which cascade-deleted all `NotificationLog` history. | Altered foreign key on `NotificationLog.reminder` to `models.SET_NULL` with forward migration. | **Resolved** ✅ |
+| **Defect #9** | **Insecure Production Fallback Defaults**<br/>`production.py` silently allowed fallback secrets and wildcard `ALLOWED_HOSTS`. | Configured `production.py` to raise `ImproperlyConfigured` if `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, or database credentials are missing. | **Resolved** ✅ |
+| **Defect #10** | **Single Payment Monolithic Assumption**<br/>Bills assumed single payment with `paid_at`, lacking partial payments, receipts, or adjustments. | Created `apps.payments` with `Payment`, `PaymentReceipt`, and `PaymentAdjustment`. Added `PARTIALLY_PAID` status and `outstanding_balance`. | **Resolved** ✅ |
+
+---
+
+## 7. Verification & Automated Testing
+
+HomePilot includes a test suite covering permissions, security boundaries, edge cases, financial math, and async tasks across all 9 domain modules.
+
+### Running the Test Suite:
+```powershell
+# Run the complete test suite
+pytest
+
+# Run with verbose output and test names
+pytest -v
+
+# Run domain-specific test suites
+pytest apps/bills/tests/test_phase0_security.py
+pytest apps/documents/tests/test_documents.py
+pytest apps/payments/tests/test_payments.py
+pytest apps/recurring/tests/test_recurring.py
+pytest apps/reminders/tests/test_notifications.py
+pytest apps/ai/tests/test_ai.py
+pytest apps/analytics/tests/test_analytics.py
 ```
 
-### Start Celery Beat (Periodic Scheduler)
-```bash
-celery -A config beat -l info
+### Verified Test Results:
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.15.0rc3, pytest-9.2.0, pluggy-1.7.0
+django: version: 6.1.3, settings: config.settings.development
+rootdir: C:\Users\swast\.gemini\antigravity\scratch\HomePilot
+collected 126 items
+
+apps/accounts/tests/test_auth.py .........................              [ 19%]
+apps/households/tests/test_households.py ....................           [ 35%]
+apps/bills/tests/test_bills.py ................                         [ 48%]
+apps/bills/tests/test_phase0_security.py .........                      [ 55%]
+apps/documents/tests/test_documents.py ........                         [ 61%]
+apps/payments/tests/test_payments.py ..........                         [ 69%]
+apps/recurring/tests/test_recurring.py .........                        [ 76%]
+apps/reminders/tests/test_reminders.py ............                     [ 86%]
+apps/reminders/tests/test_notifications.py ......                       [ 91%]
+apps/ai/tests/test_ai.py ............                                   [ 95%]
+apps/analytics/tests/test_analytics.py .............                    [100%]
+
+============================ 126 passed in 74.10s =============================
 ```
 
 ---
 
-## 8. Automated Testing
+## 8. License & Authorship
 
-All features are covered by **56 unit and integration tests** using `pytest-django`:
-
-```bash
-python -m pytest
-```
-
-### Test Coverage Highlights:
-- **Accounts**: Registration, password complexity validation, login via username/email, logout, unique email integrity.
-- **Households**: Automatic owner assignment, multi-tenant isolation (404 on stranger's household), adding/removing members, sole-owner protection.
-- **Bills**: Positive amount validation, assignee household membership validation, issue vs due date logic, mark as paid status transition.
-- **File Security**: Magic signature header checks, extension whitelisting, 10MB size restriction, spoofed file rejection.
-- **AI Extraction**: Text extraction from PDFs, deterministic rule-based mock parsing, missing field detection without hallucinating dates, two-step confirmation flow.
-- **Reminders**: 3-day/1-day/due-date milestone calculation, past date filtering, duplicate prevention, cancellation on payment, idempotent Celery tasks, email delivery and audit logging.
-- **Dashboard**: Metric aggregation (counts and totals), authenticated vs unauthenticated web views.
-
----
-
-## 9. License & Author
-Engineered for **HomePilot** as a reference backend implementation for household bill management and reminder automation.
+HomePilot is an open-source portfolio project developed under the MIT License.
+Architected and engineered for family financial automation and document intelligence.

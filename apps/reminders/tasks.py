@@ -6,6 +6,7 @@ from django.utils import timezone
 from apps.bills.models import Bill, BillStatus
 from apps.reminders.models import BillReminder, ReminderType
 from apps.reminders.services.email_service import EmailNotificationService
+from apps.reminders.services.dispatcher import NotificationDispatcherService
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +15,12 @@ logger = logging.getLogger(__name__)
 def send_bill_reminder_task(self, reminder_id: int):
     """
     Celery background worker task to dispatch an individual bill reminder.
-    Implements database-level row locking (select_for_update) to prevent race conditions
-    and guarantee strictly idempotent delivery.
+    Implements database-level row locking to prevent race conditions,
+    guarantees idempotent delivery, and ensures notification failure logs
+    are never rolled back by database transactions.
     """
     try:
+        # 1. Lock and validate reminder within an atomic block
         with transaction.atomic():
             try:
                 reminder = BillReminder.objects.select_for_update().select_related("bill", "sent_to", "bill__household").get(
@@ -38,21 +41,36 @@ def send_bill_reminder_task(self, reminder_id: int):
                 reminder.delete()
                 return False
 
-            # Dispatch notification
-            EmailNotificationService.send_bill_reminder(reminder)
+        # 2. Defect #7 Fix: Dispatch notification OUTSIDE the lock transaction so failure logs persist
+        dispatch_result = {"success": False}
+        try:
+            attempt = getattr(self.request, "retries", 0) + 1 if hasattr(self, "request") else 1
+            dispatch_result = NotificationDispatcherService.dispatch(reminder, attempt_number=attempt)
+        except Exception as exc:
+            logger.error(f"Error executing multi-channel dispatch for reminder {reminder_id}: {exc}")
+            # Exponential backoff retry (e.g. 60s, 120s, 240s)
+            raise self.retry(exc=exc, countdown=60 * (2 ** getattr(self.request, "retries", 0)))
 
-            # Mark reminder as completed
+        # 3. Defect #6 Fix: Only mark as sent if delivery was genuinely successful on at least one channel
+        if dispatch_result.get("success"):
             reminder.is_sent = True
             reminder.sent_at = timezone.now()
             reminder.save(update_fields=["is_sent", "sent_at"])
-
-            logger.info(f"Successfully dispatched reminder {reminder_id} to {reminder.sent_to.email}.")
+            recipient_info = getattr(reminder.sent_to, "email", "user")
+            logger.info(f"Successfully dispatched reminder {reminder_id} to {recipient_info}. Channels: {dispatch_result.get('channels')}")
             return True
+        else:
+            logger.warning(
+                f"Reminder {reminder_id} could not be dispatched (missing recipient or all channels failed). "
+                f"Reminder marked unsent to allow retry upon recipient/configuration correction."
+            )
+            return False
 
     except Exception as exc:
-        logger.error(f"Error executing reminder task {reminder_id}: {exc}")
-        # Exponential backoff retry (e.g. 60s, 120s, 240s)
-        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+        if hasattr(self, "request") and self.request.retries >= self.max_retries:
+            logger.critical(f"Max retries exceeded for reminder {reminder_id}: {exc}")
+            return False
+        raise exc
 
 
 @shared_task

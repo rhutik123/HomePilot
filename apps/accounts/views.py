@@ -3,8 +3,13 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import AnonRateThrottle
 
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+
+
+class AuthAnonRateThrottle(AnonRateThrottle):
+    scope = "auth_anon"
 
 
 class RegisterAPIView(APIView):
@@ -13,6 +18,7 @@ class RegisterAPIView(APIView):
     Validates password complexity against Django's validators.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AuthAnonRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -36,6 +42,7 @@ class LoginAPIView(APIView):
     Establishes a session for subsequent authenticated requests.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [AuthAnonRateThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})

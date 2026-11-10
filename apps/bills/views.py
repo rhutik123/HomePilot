@@ -83,6 +83,17 @@ class BillViewSet(viewsets.ModelViewSet):
             except BillDocument.DoesNotExist:
                 pass
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        old_due_date = instance.due_date
+        old_assigned_to = instance.assigned_to
+
+        bill = serializer.save()
+
+        # Defect #5 Fix: Reschedule reminders if due date or assignee was changed
+        if bill.due_date != old_due_date or bill.assigned_to != old_assigned_to:
+            ReminderService.reschedule_reminders_for_bill(bill)
+
     @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
         """Mark a bill as paid and cancel future reminders."""

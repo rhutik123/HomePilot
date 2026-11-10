@@ -1,6 +1,7 @@
 import io
 import logging
 from pypdf import PdfReader
+from apps.documents.services.ocr import get_document_parser
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +9,7 @@ logger = logging.getLogger(__name__)
 class DocumentParserService:
     """
     Extracts text content from uploaded bill documents (PDFs and images).
-    Robust against malformed streams with fallback string decoding.
+    Delegates to the dedicated document parsing & OCR engine.
     """
     @classmethod
     def extract_text(cls, file_obj, mime_type: str = "") -> str:
@@ -22,30 +23,19 @@ class DocumentParserService:
         if not content:
             return ""
 
-        # Handle PDF
+        # Delegate to unified OCR & parsing engine
+        parser = get_document_parser()
+        extracted_text, method = parser.parse_document(content, mime_type=mime_type)
+        if extracted_text:
+            return extracted_text
+
+        # Fallback for plain-text or ASCII pseudo-PDF testing streams
         if mime_type == "application/pdf" or content.startswith(b"%PDF"):
             try:
-                reader = PdfReader(io.BytesIO(content))
-                extracted_pages = []
-                for page in reader.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        extracted_pages.append(page_text.strip())
-                if extracted_pages:
-                    return "\n\n".join(extracted_pages)
-            except Exception as e:
-                logger.warning(f"Standard PDF parser encountered error: {e}. Attempting text fallback.")
-
-            # Fallback: Extract readable ASCII/UTF-8 string fragments
-            try:
                 decoded = content.decode("utf-8", errors="ignore")
-                lines = [line.strip() for line in decoded.splitlines() if line.strip()]
+                lines = [line.strip() for line in decoded.splitlines() if line.strip() and not line.startswith(("%PDF", "%%EOF"))]
                 return "\n".join(lines)
             except Exception:
                 return ""
-
-        # Handle images
-        if mime_type.startswith("image/"):
-            return ""
 
         return ""

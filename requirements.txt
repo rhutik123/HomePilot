@@ -16,6 +16,10 @@ redis>=5.0
 # Document & Image Processing
 pypdf>=5.0
 Pillow>=10.4
+reportlab>=4.0
+
+# AI & LLM Providers
+google-genai>=3.0.0
 
 # Environment Configuration
 python-dotenv>=1.0

@@ -2,11 +2,33 @@
 Production settings for HomePilot.
 Strict security, HTTPS enforcement, and production logging.
 """
+from django.core.exceptions import ImproperlyConfigured
 from .base import *
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+# Validate mandatory production secret key
+secret_key_env = os.getenv("DJANGO_SECRET_KEY", "").strip()
+if not secret_key_env or secret_key_env == "django-insecure-fallback-development-key-homepilot-2026-default":
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be set to a secure, private value in production."
+    )
+SECRET_KEY = secret_key_env
+
+raw_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "").strip()
+ALLOWED_HOSTS = [h.strip() for h in raw_hosts.split(",") if h.strip()]
+if not ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS must be explicitly defined in production."
+    )
+
+# Validate database credentials if using PostgreSQL
+if DB_ENGINE == "django.db.backends.postgresql":
+    db_pass = os.getenv("DB_PASSWORD", "").strip()
+    if not db_pass or db_pass == "postgres":
+        raise ImproperlyConfigured(
+            "DB_PASSWORD must be configured with a non-default password in production."
+        )
 
 # Security headers & SSL
 SECURE_SSL_REDIRECT = True

@@ -40,8 +40,13 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.households.apps.HouseholdsConfig",
+    "apps.documents.apps.DocumentsConfig",
     "apps.bills.apps.BillsConfig",
+    "apps.payments.apps.PaymentsConfig",
+    "apps.recurring.apps.RecurringConfig",
     "apps.reminders.apps.RemindersConfig",
+    "apps.ai.apps.AIConfig",
+    "apps.analytics.apps.AnalyticsConfig",
     "apps.dashboard.apps.DashboardConfig",
 ]
 
@@ -140,6 +145,15 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/hour",
+        "user": "1000/hour",
+        "auth_anon": "10/minute",
+    },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
 }
@@ -162,6 +176,14 @@ CELERY_BEAT_SCHEDULE = {
     "check-overdue-bills-midnight": {
         "task": "apps.reminders.tasks.check_and_update_overdue_bills",
         "schedule": 86400.0,  # Runs daily (or crontab(hour=0, minute=5))
+    },
+    "generate-recurring-bills-daily": {
+        "task": "apps.recurring.tasks.generate_recurring_bills_task",
+        "schedule": 86400.0,  # Runs daily (or crontab(hour=6, minute=0))
+    },
+    "generate-spending-insights-weekly": {
+        "task": "apps.ai.tasks.generate_spending_insights_task",
+        "schedule": 604800.0,  # Runs weekly
     },
 }
 
