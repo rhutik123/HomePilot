@@ -8,7 +8,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Ready-336791.svg)](https://www.postgresql.org/)
 [![Celery](https://img.shields.io/badge/Celery-5.4%2B-37814A.svg)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-5.0%2B-DC382D.svg)](https://redis.io/)
-[![Tests](https://img.shields.io/badge/Tests-56%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-59%20Passed-brightgreen.svg)]()
 
 ---
 
