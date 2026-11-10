@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load ai_markdown %}
 
 {% block title %}HomePilot AI Assistant - {{ household.name }}{% endblock %}
 
@@ -141,8 +142,8 @@
                             {% endif %}
 
                             <!-- Prose Content -->
-                            <div class="prose prose-sm max-w-none prose-slate text-sm whitespace-pre-wrap leading-relaxed">
-                                {{ msg.content }}
+                            <div class="prose prose-sm max-w-none prose-slate text-sm leading-relaxed">
+                                {{ msg.content|render_markdown }}
                             </div>
                             <span class="block text-[10px] text-slate-400 mt-1">{{ msg.created_at|date:"H:i" }}</span>
                         </div>

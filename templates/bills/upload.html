@@ -37,8 +37,10 @@
                             Uploaded {{ doc.created_at|timesince }} ago &bull; {{ doc.file_size|filesizeformat }}
                             {% if doc.extraction_status == 'SUCCESS' %}
                             <span class="ml-1 text-emerald-700 font-medium">&bull; Parsed</span>
+                            {% elif doc.extraction_status == 'NEEDS_REVIEW' %}
+                            <span class="ml-1 text-amber-700 font-medium">&bull; Needs Review</span>
                             {% elif doc.extraction_status == 'FAILED' %}
-                            <span class="ml-1 text-amber-700 font-medium">&bull; Needs Manual Input</span>
+                            <span class="ml-1 text-rose-700 font-medium">&bull; Extraction Failed</span>
                             {% endif %}
                         </p>
                         {% if doc.is_possible_duplicate %}
@@ -46,9 +48,26 @@
                         {% endif %}
                     </div>
                 </div>
-                <a href="{% url 'dashboard_web:bill-upload' %}?doc_id={{ doc.id }}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition">
-                    Review & Confirm &rarr;
-                </a>
+                <div class="flex items-center space-x-2 flex-wrap">
+                    <a href="{% url 'bills:document-download' doc.id %}" target="_blank" class="text-slate-600 hover:text-slate-900 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" title="Download original file">
+                        ⬇️ Download
+                    </a>
+                    <form method="POST" action="{% url 'dashboard_web:bill-document-retry' doc.id %}" class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="text-amber-700 hover:text-amber-900 text-xs px-2.5 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-100/60 transition" title="Re-run AI extraction">
+                            🔄 Retry
+                        </button>
+                    </form>
+                    <form method="POST" action="{% url 'dashboard_web:bill-document-delete' doc.id %}" class="inline" onsubmit="return confirm('Are you sure you want to delete this draft document?');">
+                        {% csrf_token %}
+                        <button type="submit" class="text-rose-600 hover:text-rose-800 text-xs px-2.5 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition" title="Delete draft document">
+                            🗑️ Delete
+                        </button>
+                    </form>
+                    <a href="{% url 'dashboard_web:bill-upload' %}?doc_id={{ doc.id }}" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-xs">
+                        Review & Confirm &rarr;
+                    </a>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -320,7 +339,7 @@
                     <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
                         <option value="">-- Unassigned (Household Shared) --</option>
                         {% for m in members %}
-                        <option value="{{ m.id }}" {% if m.id == user.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
+                        <option value="{{ m.id }}" {% if extracted_data.assigned_to == m.id|stringformat:"s" or not extracted_data.assigned_to and m.id == user.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -335,7 +354,7 @@
             <!-- Notes -->
             <div>
                 <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
-                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Optional notes for family members..."></textarea>
+                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Optional notes for family members...">{{ extracted_data.notes|default:'' }}</textarea>
             </div>
 
             <div class="pt-4 flex items-center justify-between border-t border-slate-100">

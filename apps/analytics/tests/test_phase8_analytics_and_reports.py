@@ -311,12 +311,33 @@ class TestPhase8ExportReports:
         assert "Airtel Broadband" in content_upcoming
 
     def test_export_financial_statement_pdf(self, test_household, analytics_data):
-        """Tests PDF financial statement generation starts with %PDF header."""
+        """Tests PDF financial statement generation starts with %PDF header and supports date filters and XML escaping."""
+        # 1. Without date filters
         response = PDFReportExporter.export_financial_statement_pdf(test_household)
         assert response.status_code == 200
         assert response["Content-Type"] == "application/pdf"
         assert response.content.startswith(b"%PDF-")
         assert len(response.content) > 1000
+
+        # 2. Regression test: With date_from and date_to (previously crashed due to slicing before filtering)
+        response_filtered = PDFReportExporter.export_financial_statement_pdf(
+            test_household,
+            date_from=datetime.date(2026, 10, 1),
+            date_to=datetime.date(2026, 11, 30),
+        )
+        assert response_filtered.status_code == 200
+        assert response_filtered["Content-Type"] == "application/pdf"
+        assert response_filtered.content.startswith(b"%PDF-")
+
+        # 3. Special characters in household and provider names (&, <, >)
+        test_household.name = "AT&T & Sons <Special> Family"
+        test_household.save()
+        response_special = PDFReportExporter.export_financial_statement_pdf(
+            test_household,
+            date_from=datetime.date(2026, 11, 1),
+        )
+        assert response_special.status_code == 200
+        assert response_special.content.startswith(b"%PDF-")
 
     def test_export_payments_statement_pdf(self, test_household, analytics_data):
         """Tests PDF payment statement generation."""

@@ -3,6 +3,7 @@ import logging
 from decimal import Decimal
 from datetime import datetime, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.http import FileResponse, Http404
 
 logger = logging.getLogger(__name__)
@@ -272,7 +273,16 @@ def bill_upload_view(request):
                             provider = get_extraction_provider()
                             result = provider.extract(raw_text, doc.mime_type)
                             doc.extracted_data = result.model_dump(mode="json")
-                            doc.extraction_status = BillDocument.ExtractionStatus.SUCCESS
+                            is_complete = bool(
+                                result.amount is not None
+                                and result.provider_name
+                                and result.due_date is not None
+                            )
+                            doc.extraction_status = (
+                                BillDocument.ExtractionStatus.SUCCESS
+                                if is_complete
+                                else BillDocument.ExtractionStatus.NEEDS_REVIEW
+                            )
                             doc.save()
 
                             AuditService.log(
@@ -456,6 +466,120 @@ def bill_upload_view(request):
         "categories": BillCategory.choices,
     }
     return render(request, "bills/upload.html", context)
+
+
+@login_required(login_url="dashboard_web:login")
+@require_POST
+def delete_bill_document_web(request, doc_id):
+    """
+    Deletes an unconfirmed/draft BillDocument.
+    Only permitted if document is not linked to a finalized bill,
+    and user is either original uploader or household owner.
+    """
+    user = request.user
+    doc = get_object_or_404(
+        BillDocument.objects.select_related("household", "uploaded_by"),
+        id=doc_id,
+        household__memberships__user=user,
+    )
+
+    if doc.bill is not None:
+        messages.error(request, "Cannot delete document: it is already linked to a confirmed bill.")
+        return redirect("dashboard_web:bill-upload")
+
+    is_uploader = doc.uploaded_by == user
+    is_owner = doc.household.is_owner(user)
+    if not (is_uploader or is_owner):
+        messages.error(request, "You do not have permission to delete this draft document.")
+        return redirect("dashboard_web:bill-upload")
+
+    file_name = doc.file_name
+    household = doc.household
+
+    if doc.file:
+        try:
+            doc.file.delete(save=False)
+        except Exception as e:
+            logger.warning("Failed to delete physical file for doc #%s: %s", doc.id, e)
+
+    doc.delete()
+
+    AuditService.log(
+        action=AuditEvent.Action.DOCUMENT_DELETED,
+        actor=user,
+        household=household,
+        entity=None,
+        description=f"Draft document '{file_name}' deleted by {user.display_name}.",
+        metadata={"file_name": file_name, "document_id": doc_id},
+    )
+
+    messages.success(request, f"Draft document '{file_name}' was deleted.")
+    return redirect("dashboard_web:bill-upload")
+
+
+@login_required(login_url="dashboard_web:login")
+@require_POST
+def retry_document_extraction_web(request, doc_id):
+    """
+    Retries AI extraction on an unconfirmed draft BillDocument.
+    Re-runs OCR and structured extraction service, updating status and extracted data.
+    """
+    user = request.user
+    doc = get_object_or_404(
+        BillDocument.objects.select_related("household"),
+        id=doc_id,
+        household__memberships__user=user,
+    )
+
+    if doc.bill is not None:
+        messages.error(request, "Document is already linked to a confirmed bill.")
+        return redirect("dashboard_web:bill-upload")
+
+    try:
+        raw_text = DocumentParserService.extract_text(doc.file, doc.mime_type)
+        doc.raw_text = raw_text
+        provider = get_extraction_provider()
+        result = provider.extract(raw_text, doc.mime_type)
+        doc.extracted_data = result.model_dump(mode="json")
+        is_complete = bool(
+            result.amount is not None
+            and result.provider_name
+            and result.due_date is not None
+        )
+        doc.extraction_status = (
+            BillDocument.ExtractionStatus.SUCCESS
+            if is_complete
+            else BillDocument.ExtractionStatus.NEEDS_REVIEW
+        )
+        doc.save(update_fields=["raw_text", "extracted_data", "extraction_status"])
+
+        AuditService.log(
+            action=AuditEvent.Action.EXTRACTION_COMPLETED,
+            actor=user,
+            household=doc.household,
+            entity=doc,
+            description=f"AI extraction re-run for '{doc.file_name}'.",
+            metadata={"missing_fields": result.missing_fields, "provider": provider.__class__.__name__},
+        )
+        messages.success(request, f"Extraction re-run successfully for '{doc.file_name}'.")
+
+    except Exception as exc:
+        logger.warning("Retry extraction failed for doc #%s: %s", doc.id, exc)
+        doc.extraction_status = BillDocument.ExtractionStatus.FAILED
+        doc.extracted_data = {"error": str(exc)}
+        doc.save(update_fields=["extraction_status", "extracted_data"])
+
+        AuditService.log(
+            action=AuditEvent.Action.EXTRACTION_FAILED,
+            actor=user,
+            household=doc.household,
+            entity=doc,
+            description=f"AI extraction retry failed for '{doc.file_name}': {str(exc)}",
+            metadata={"error": str(exc)},
+        )
+        messages.error(request, f"Extraction re-run failed: {str(exc)}")
+
+    return redirect(f"{reverse('dashboard_web:bill-upload')}?doc_id={doc.id}")
 
 
 @login_required(login_url="dashboard_web:login")
@@ -681,11 +805,17 @@ def household_view(request):
         )
         current_membership = membership
     else:
-        current_membership = memberships.first()
+        household_param = request.GET.get("household") or request.session.get("active_household_id")
+        current_membership = None
+        if household_param:
+            current_membership = memberships.filter(household_id=household_param).first()
+        if not current_membership:
+            current_membership = memberships.first()
 
+    request.session["active_household_id"] = current_membership.household.id
     household = current_membership.household
     is_owner = current_membership.role == HouseholdMembership.Role.OWNER
-    members = household.memberships.select_related("user").all()
+    members = household.memberships.select_related("user").order_by("-role", "joined_at")
 
     if request.method == "POST" and is_owner:
         target_ident = request.POST.get("username_or_email", "").strip()
@@ -715,14 +845,115 @@ def household_view(request):
                 description=f"Added {target_user.display_name} as {role} to '{household.name}'.",
             )
             messages.success(request, f"Successfully added {target_user.display_name} as {role}!")
-            return redirect("dashboard_web:household")
+            return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
 
     context = {
         "household": household,
         "is_owner": is_owner,
         "members": members,
+        "all_memberships": memberships,
+        "current_membership": current_membership,
     }
     return render(request, "households/index.html", context)
+
+
+@login_required(login_url="dashboard_web:login")
+@require_POST
+def household_change_role_web(request, membership_id):
+    """
+    Changes a member's role (OWNER <-> MEMBER).
+    Enforces authorization: caller must be an OWNER in that household.
+    Guards against removing the last owner.
+    """
+    user = request.user
+    membership = get_object_or_404(
+        HouseholdMembership.objects.select_related("household", "user"),
+        id=membership_id,
+    )
+    household = membership.household
+
+    if not household.is_owner(user):
+        messages.error(request, "Only household owners can change member roles.")
+        return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
+
+    new_role = request.POST.get("role")
+    if new_role not in (HouseholdMembership.Role.OWNER, HouseholdMembership.Role.MEMBER):
+        messages.error(request, "Invalid role selected.")
+        return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
+
+    # Guard: If demoting an owner, ensure at least one other owner remains
+    if membership.role == HouseholdMembership.Role.OWNER and new_role == HouseholdMembership.Role.MEMBER:
+        owner_count = HouseholdMembership.objects.filter(
+            household=household,
+            role=HouseholdMembership.Role.OWNER,
+        ).count()
+        if owner_count <= 1:
+            messages.error(request, "Cannot demote the only owner of this household. Promote another member first.")
+            return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
+
+    old_role = membership.role
+    membership.role = new_role
+    membership.save(update_fields=["role"])
+
+    AuditService.log(
+        action=AuditEvent.Action.ROLE_CHANGED,
+        actor=user,
+        household=household,
+        entity=membership,
+        description=f"Changed role of {membership.user.display_name} from {old_role} to {new_role}.",
+        metadata={"old_role": old_role, "new_role": new_role, "member_id": membership.user.id},
+    )
+
+    messages.success(request, f"Updated role for {membership.user.display_name} to {new_role}.")
+    return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
+
+
+@login_required(login_url="dashboard_web:login")
+@require_POST
+def household_remove_member_web(request, membership_id):
+    """
+    Removes a member from a household.
+    Enforces authorization: caller must be an OWNER in that household.
+    Guards against removing the last owner.
+    Never deletes the user account, only the membership link.
+    """
+    user = request.user
+    membership = get_object_or_404(
+        HouseholdMembership.objects.select_related("household", "user"),
+        id=membership_id,
+    )
+    household = membership.household
+
+    if not household.is_owner(user):
+        messages.error(request, "Only household owners can remove members.")
+        return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
+
+    # Guard: Cannot remove the last owner
+    if membership.role == HouseholdMembership.Role.OWNER:
+        owner_count = HouseholdMembership.objects.filter(
+            household=household,
+            role=HouseholdMembership.Role.OWNER,
+        ).count()
+        if owner_count <= 1:
+            messages.error(request, "Cannot remove the only owner of this household. Transfer ownership first.")
+            return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
+
+    target_user_name = membership.user.display_name
+    target_user_id = membership.user.id
+
+    membership.delete()
+
+    AuditService.log(
+        action=AuditEvent.Action.MEMBER_REMOVED,
+        actor=user,
+        household=household,
+        entity=None,
+        description=f"Removed {target_user_name} from household '{household.name}'.",
+        metadata={"removed_user_id": target_user_id, "removed_user_name": target_user_name},
+    )
+
+    messages.success(request, f"Removed {target_user_name} from '{household.name}'.")
+    return redirect(f"{reverse('dashboard_web:household')}?household={household.id}")
 
 
 @login_required(login_url="dashboard_web:login")
@@ -1251,6 +1482,9 @@ def ai_assistant_view(request, conversation_id=None):
             id=conversation_id,
             household=household,
         )
+        if active_conversation.user != user and not household.is_owner(user):
+            messages.error(request, "You do not have permission to access this conversation.")
+            return redirect("dashboard_web:ai-assistant")
     else:
         active_conversation = conversations.first()
         if not active_conversation:
@@ -1282,10 +1516,14 @@ def ai_assistant_send_message_web(request, conversation_id):
     """
     user = request.user
     conversation = get_object_or_404(
-        AIConversation,
+        AIConversation.objects.select_related("household"),
         id=conversation_id,
         household__memberships__user=user,
     )
+
+    if conversation.user != user and not conversation.household.is_owner(user):
+        messages.error(request, "You do not have permission to post messages to this conversation.")
+        return redirect("dashboard_web:ai-assistant")
 
     prompt = request.POST.get("prompt", "").strip()
     if not prompt:

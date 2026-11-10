@@ -24,6 +24,7 @@ class AuditEvent(models.Model):
         MEMBER_REMOVED = "MEMBER_REMOVED", "Member Removed"
         ROLE_CHANGED = "ROLE_CHANGED", "Role Changed"
         DOCUMENT_UPLOADED = "DOCUMENT_UPLOADED", "Document Uploaded"
+        DOCUMENT_DELETED = "DOCUMENT_DELETED", "Document Deleted"
         EXTRACTION_COMPLETED = "EXTRACTION_COMPLETED", "Document Extraction Completed"
         EXTRACTION_FAILED = "EXTRACTION_FAILED", "Document Extraction Failed"
         RECURRING_CHANGED = "RECURRING_CHANGED", "Recurring Schedule Changed"

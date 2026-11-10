@@ -2,6 +2,7 @@ import io
 from datetime import date
 from decimal import Decimal
 from typing import Optional
+from xml.sax.saxutils import escape as xml_escape
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -116,7 +117,7 @@ class PDFReportExporter:
 
         elements.append(
             Paragraph(
-                f"Household: <b>{household.name}</b> &nbsp;|&nbsp; Reporting Period: <b>{date_range_str}</b> "
+                f"Household: <b>{xml_escape(household.name)}</b> &nbsp;|&nbsp; Reporting Period: <b>{xml_escape(date_range_str)}</b> "
                 f"&nbsp;|&nbsp; Generated: {timezone.now().strftime('%B %d, %Y %H:%M')}",
                 subtitle_style,
             )
@@ -205,12 +206,13 @@ class PDFReportExporter:
         bills_qs = (
             Bill.objects.filter(household=household)
             .select_related("assigned_to")
-            .order_by("-due_date")[:40]
         )
         if date_from:
             bills_qs = bills_qs.filter(due_date__gte=date_from)
         if date_to:
             bills_qs = bills_qs.filter(due_date__lte=date_to)
+
+        bills_list = list(bills_qs.order_by("-due_date")[:40])
 
         bill_table_data = [
             [
@@ -224,17 +226,17 @@ class PDFReportExporter:
         ]
 
         cat_map = dict(BillCategory.choices)
-        for b in bills_qs:
+        for b in bills_list:
             bill_table_data.append([
-                Paragraph(b.provider_name, cell_text),
-                Paragraph(cat_map.get(b.category, b.category), cell_text),
-                Paragraph(f"{b.amount:.2f} {b.currency}", cell_text),
-                Paragraph(f"{b.outstanding_balance:.2f} {b.currency}", cell_text),
-                Paragraph(b.get_status_display(), cell_text),
+                Paragraph(xml_escape(b.provider_name or "Unknown"), cell_text),
+                Paragraph(xml_escape(str(cat_map.get(b.category, b.category))), cell_text),
+                Paragraph(f"{b.amount:.2f} {xml_escape(b.currency or 'INR')}", cell_text),
+                Paragraph(f"{b.outstanding_balance:.2f} {xml_escape(b.currency or 'INR')}", cell_text),
+                Paragraph(xml_escape(b.get_status_display()), cell_text),
                 Paragraph(b.due_date.isoformat() if b.due_date else "N/A", cell_text),
             ])
 
-        if not bills_qs.exists():
+        if not bills_list:
             bill_table_data.append([Paragraph("No bills recorded.", cell_text), "", "", "", "", ""])
 
         bill_table = Table(bill_table_data, colWidths=[130, 95, 85, 85, 75, 70])
@@ -332,7 +334,7 @@ class PDFReportExporter:
 
         elements.append(
             Paragraph(
-                f"Household: <b>{household.name}</b> &nbsp;|&nbsp; Reporting Period: <b>{date_range_str}</b> "
+                f"Household: <b>{xml_escape(household.name)}</b> &nbsp;|&nbsp; Reporting Period: <b>{xml_escape(date_range_str)}</b> "
                 f"&nbsp;|&nbsp; Generated: {timezone.now().strftime('%B %d, %Y %H:%M')}",
                 subtitle_style,
             )
@@ -363,13 +365,14 @@ class PDFReportExporter:
         total_settled = Decimal("0.00")
         for p in payments_qs:
             total_settled += p.amount
+            provider_title = p.bill.provider_name if p.bill else "Direct"
             table_data.append([
                 Paragraph(p.payment_date.isoformat(), cell_text),
-                Paragraph(p.bill.provider_name if p.bill else "Direct", cell_text),
-                Paragraph(f"{p.amount:.2f} {p.currency}", cell_text),
-                Paragraph(p.get_payment_method_display(), cell_text),
-                Paragraph(p.transaction_reference or "N/A", cell_text),
-                Paragraph(getattr(p.paid_by, "display_name", "Unknown"), cell_text),
+                Paragraph(xml_escape(provider_title), cell_text),
+                Paragraph(f"{p.amount:.2f} {xml_escape(p.currency or 'INR')}", cell_text),
+                Paragraph(xml_escape(p.get_payment_method_display()), cell_text),
+                Paragraph(xml_escape(p.transaction_reference or "N/A"), cell_text),
+                Paragraph(xml_escape(getattr(p.paid_by, "display_name", "Unknown")), cell_text),
             ])
 
         if not payments_qs.exists():

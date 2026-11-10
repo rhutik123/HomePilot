@@ -1,7 +1,9 @@
+from django.db.models import Q
 from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 
 from .models import (
     AIConversation,
@@ -21,19 +23,24 @@ from .serializers import (
 from .services.assistant import AIAssistantService
 from .services.anomaly_detector import SpendingAnomalyDetector
 from .services.spending_insights_service import SpendingInsightsService
-from apps.households.models import Household
+from apps.households.models import Household, HouseholdMembership
 
 
 class AIConversationViewSet(viewsets.ModelViewSet):
     """
     CRUD API for stateful AI conversations with the HomePilot assistant.
-    Strictly isolated to households where the user is an active member.
+    Strictly isolated: users can access their own conversations or all conversations
+    in households where they hold the OWNER role.
     """
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        user = self.request.user
         queryset = (
-            AIConversation.objects.filter(household__memberships__user=self.request.user)
+            AIConversation.objects.filter(
+                Q(user=user, household__memberships__user=user)
+                | Q(household__memberships__user=user, household__memberships__role=HouseholdMembership.Role.OWNER)
+            )
             .select_related("household", "user")
             .prefetch_related("messages__tool_executions")
             .distinct()

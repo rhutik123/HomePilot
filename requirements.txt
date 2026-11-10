@@ -27,6 +27,7 @@ google-genai>=3.0.0
 
 # Environment Configuration
 python-dotenv>=1.0
+markdown>=3.6
 
 # Testing
 pytest>=8.0

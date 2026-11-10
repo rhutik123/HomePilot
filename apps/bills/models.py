@@ -186,6 +186,7 @@ class BillDocument(models.Model):
     class ExtractionStatus(models.TextChoices):
         PENDING = "PENDING", "Pending"
         SUCCESS = "SUCCESS", "Success"
+        NEEDS_REVIEW = "NEEDS_REVIEW", "Needs Review"
         FAILED = "FAILED", "Failed"
 
     bill = models.ForeignKey(

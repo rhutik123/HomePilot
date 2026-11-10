@@ -14,21 +14,68 @@
         </a>
     </div>
 
+    {% if all_memberships and all_memberships.count > 1 %}
+    <!-- Household Switcher -->
+    <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-2 overflow-x-auto">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 px-2">Your Households:</span>
+        {% for mb in all_memberships %}
+        <a href="{% url 'dashboard_web:household' %}?household={{ mb.household.id }}"
+           class="px-3.5 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition {% if mb.household.id == household.id %}bg-indigo-600 text-white shadow-xs{% else %}bg-slate-100 text-slate-700 hover:bg-slate-200{% endif %}">
+            🏠 {{ mb.household.name }} ({{ mb.get_role_display }})
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Members Table -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <h2 class="text-base font-bold text-slate-900">Household Members ({{ members.count }})</h2>
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900">Household Members ({{ members.count }})</h2>
+            <span class="text-xs text-slate-400">Strict multi-tenant boundary</span>
+        </div>
         <div class="divide-y divide-slate-100">
             {% for m in members %}
-            <div class="py-3 flex items-center justify-between">
+            <div class="py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h4 class="text-sm font-semibold text-slate-900">{{ m.user.display_name }}</h4>
-                    <span class="text-xs text-slate-500">{{ m.user.email }} &bull; Username: {{ m.user.username }}</span>
+                    <div class="flex items-center gap-2">
+                        <h4 class="text-sm font-semibold text-slate-900">{{ m.user.display_name }}</h4>
+                        {% if m.user.id == user.id %}
+                        <span class="bg-indigo-50 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-bold">You</span>
+                        {% endif %}
+                    </div>
+                    <span class="text-xs text-slate-500">{{ m.user.email }} &bull; Username: @{{ m.user.username }} &bull; Joined {{ m.joined_at|date:"M d, Y" }}</span>
                 </div>
-                <div>
+                <div class="flex items-center gap-3">
                     {% if m.role == 'OWNER' %}
                     <span class="bg-indigo-100 text-indigo-800 text-xs px-2.5 py-1 rounded-full font-semibold">Owner</span>
                     {% else %}
                     <span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-semibold">Member</span>
+                    {% endif %}
+
+                    {% if is_owner %}
+                    <!-- Role Change Action -->
+                    <form method="POST" action="{% url 'dashboard_web:household-change-role' m.id %}" class="inline">
+                        {% csrf_token %}
+                        {% if m.role == 'OWNER' %}
+                        <input type="hidden" name="role" value="MEMBER">
+                        <button type="submit" class="text-xs text-slate-500 hover:text-slate-800 underline transition" title="Change to regular member">
+                            Demote to Member
+                        </button>
+                        {% else %}
+                        <input type="hidden" name="role" value="OWNER">
+                        <button type="submit" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold underline transition" title="Promote to household owner">
+                            Promote to Owner
+                        </button>
+                        {% endif %}
+                    </form>
+
+                    <!-- Remove Member Action -->
+                    <form method="POST" action="{% url 'dashboard_web:household-remove-member' m.id %}" class="inline" onsubmit="return confirm('Are you sure you want to remove {{ m.user.display_name }} from {{ household.name }}?');">
+                        {% csrf_token %}
+                        <button type="submit" class="text-xs text-rose-600 hover:text-rose-800 px-2.5 py-1 rounded-lg border border-rose-200 hover:bg-rose-50 transition font-medium" title="Remove member from this household">
+                            Remove
+                        </button>
+                    </form>
                     {% endif %}
                 </div>
             </div>

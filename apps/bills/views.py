@@ -235,7 +235,16 @@ class BillDocumentExtractAPIView(APIView):
             # 3. Save extracted state on document
             extracted_dict = extracted_result.model_dump(mode="json")
             document.extracted_data = extracted_dict
-            document.extraction_status = BillDocument.ExtractionStatus.SUCCESS
+            is_complete = bool(
+                extracted_result.amount is not None
+                and extracted_result.provider_name
+                and extracted_result.due_date is not None
+            )
+            document.extraction_status = (
+                BillDocument.ExtractionStatus.SUCCESS
+                if is_complete
+                else BillDocument.ExtractionStatus.NEEDS_REVIEW
+            )
             document.save(update_fields=["raw_text", "extracted_data", "extraction_status"])
 
             AuditService.log(

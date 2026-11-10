@@ -1,13 +1,13 @@
 import logging
 import re
 from decimal import Decimal
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 from django.conf import settings
 from django.utils import timezone
 
 from apps.ai.models import AIConversation, AIMessage, AIToolExecution, AIUsageRecord
 from apps.ai.services.tools import execute_tool_call, TOOL_REGISTRY
-from apps.bills.models import BillCategory
+from apps.bills.models import Bill, BillCategory
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,20 @@ CRITICAL ARCHITECTURAL MANDATES:
 
 
 def _extract_quantity_limit(prompt: str) -> Optional[int]:
-    """Extracts requested quantity/limit from user prompt (e.g. 'show 1 bill', 'top 3', 'show two')."""
+    """
+    Extracts requested quantity/limit from user prompt (e.g. 'show 1 bill', 'top 3',
+    'only any one', 'just one', 'first 3', 'all').
+    """
+    prompt_clean = prompt.lower().strip()
+
+    # Explicit request for all items
+    if re.search(r"\b(?:all|every|complete\s+list)\b", prompt_clean):
+        return None
+
+    # Compound single expressions: "only any one", "any one", "only one", "just one", "a single"
+    if re.search(r"\b(?:only\s+any\s+one|any\s+one|only\s+one|just\s+one|a\s+single|just\s+1|only\s+1)\b", prompt_clean):
+        return 1
+
     words_to_num = {
         "one": 1,
         "single": 1,
@@ -38,8 +51,12 @@ def _extract_quantity_limit(prompt: str) -> Optional[int]:
         "nine": 9,
         "ten": 10,
     }
-    # Check digits: "show 1", "top 3", "limit 5", "last 2", "1 upcoming", "1 bill"
-    match_digits = re.search(r"\b(?:top|first|last|show|list|get|give me|only)?\s*(\d+)\s*(?:upcoming|overdue|unpaid|recent|recurring)?\s*(?:bills?|payments?|schedules?|items?|subscriptions?)?\b", prompt, re.IGNORECASE)
+
+    # Match numeric patterns: "first 3", "top 5", "show 1", "3 bills", "limit 5"
+    match_digits = re.search(
+        r"\b(?:top|first|last|show|list|get|give me|only|just|any)?\s*(\d+)\s*(?:upcoming|overdue|unpaid|recent|recurring)?\s*(?:bills?|payments?|schedules?|items?|subscriptions?)?\b",
+        prompt_clean,
+    )
     if match_digits and match_digits.group(1):
         try:
             val = int(match_digits.group(1))
@@ -47,10 +64,15 @@ def _extract_quantity_limit(prompt: str) -> Optional[int]:
                 return val
         except Exception:
             pass
+
     # Check words: "one", "two", "three", etc.
     for word, num in words_to_num.items():
-        if re.search(rf"\b(?:top|first|last|show|list|get|give me|only)?\s*{word}\s*(?:upcoming|overdue|unpaid|recent|recurring)?\s*(?:bills?|payments?|schedules?|items?|subscriptions?)?\b", prompt, re.IGNORECASE):
+        if re.search(
+            rf"\b(?:top|first|last|show|list|get|give me|only|just|any)?\s*{word}\s*(?:upcoming|overdue|unpaid|recent|recurring)?\s*(?:bills?|payments?|schedules?|items?|subscriptions?)?\b",
+            prompt_clean,
+        ):
             return num
+
     return None
 
 
@@ -77,10 +99,22 @@ class AIAssistantService:
         )
 
         api_key = getattr(settings, "GEMINI_API_KEY", "") or ""
-        backend = getattr(settings, "BILL_EXTRACTION_BACKEND", "mock")
+        backend = str(getattr(settings, "AI_ASSISTANT_BACKEND", getattr(settings, "BILL_EXTRACTION_BACKEND", "mock"))).lower()
 
         # 2. Check if live Google Gemini client should be used
-        if api_key and backend != "mock":
+        if backend in ("gemini", "google", "llm"):
+            if not api_key:
+                err_text = (
+                    "Google Gemini AI Assistant is configured (`AI_ASSISTANT_BACKEND=gemini`), "
+                    "but `GEMINI_API_KEY` is missing from the environment settings. "
+                    "Please set your `GEMINI_API_KEY` in `.env` or set `AI_ASSISTANT_BACKEND=mock` for offline operation."
+                )
+                assistant_msg = AIMessage.objects.create(
+                    conversation=conversation,
+                    role=AIMessage.Role.ASSISTANT,
+                    content=err_text,
+                )
+                return assistant_msg, []
             return cls._call_gemini_assistant(conversation, user, user_msg, prompt)
         else:
             return cls._call_mock_assistant(conversation, user, user_msg, prompt)
@@ -117,6 +151,7 @@ class AIAssistantService:
                             properties={
                                 "days": types.Schema(type=types.Type.INTEGER, description="Days ahead to check"),
                                 "only_assigned_to_me": types.Schema(type=types.Type.BOOLEAN, description="Filter only bills assigned to the calling user"),
+                                "limit": types.Schema(type=types.Type.INTEGER, description="Maximum number of bills to return"),
                             },
                         ),
                     ),
@@ -127,6 +162,7 @@ class AIAssistantService:
                             type=types.Type.OBJECT,
                             properties={
                                 "only_assigned_to_me": types.Schema(type=types.Type.BOOLEAN, description="Filter only bills assigned to the calling user"),
+                                "limit": types.Schema(type=types.Type.INTEGER, description="Maximum number of bills to return"),
                             },
                         ),
                     ),
@@ -178,7 +214,12 @@ class AIAssistantService:
                     types.FunctionDeclaration(
                         name="get_recurring_bills",
                         description="Analyzes active recurring bill schedules and calculates total monthly recurring commitments.",
-                        parameters=types.Schema(type=types.Type.OBJECT, properties={}),
+                        parameters=types.Schema(
+                            type=types.Type.OBJECT,
+                            properties={
+                                "limit": types.Schema(type=types.Type.INTEGER, description="Maximum number of schedules to return"),
+                            },
+                        ),
                     ),
                     types.FunctionDeclaration(
                         name="get_unpaid_bills",
@@ -187,6 +228,7 @@ class AIAssistantService:
                             type=types.Type.OBJECT,
                             properties={
                                 "only_assigned_to_me": types.Schema(type=types.Type.BOOLEAN, description="Filter only bills assigned to the calling user"),
+                                "limit": types.Schema(type=types.Type.INTEGER, description="Maximum number of bills to return"),
                             },
                         ),
                     ),
@@ -275,8 +317,22 @@ class AIAssistantService:
             return assistant_msg, tool_executions
 
         except Exception as exc:
-            logger.exception(f"Gemini assistant error: {exc}. Falling back to deterministic assistant.")
-            return cls._call_mock_assistant(conversation, user, user_msg, prompt)
+            logger.exception(f"Gemini assistant error: {exc}.")
+            allow_fallback = getattr(settings, "AI_ASSISTANT_FALLBACK_TO_MOCK", False)
+            if allow_fallback:
+                logger.warning("Falling back to deterministic mock assistant due to Gemini failure.")
+                fallback_msg, tools = cls._call_mock_assistant(conversation, user, user_msg, prompt)
+                fallback_msg.content = f"*⚠️ Notice: Gemini AI service was unavailable ({exc.__class__.__name__}). Displaying verified offline calculations:*\n\n" + fallback_msg.content
+                fallback_msg.save(update_fields=["content"])
+                return fallback_msg, tools
+
+            err_text = f"The Gemini AI Assistant encountered an error while processing your request: {str(exc)}. Please check your internet connection or API quota."
+            assistant_msg = AIMessage.objects.create(
+                conversation=conversation,
+                role=AIMessage.Role.ASSISTANT,
+                content=err_text,
+            )
+            return assistant_msg, []
 
     @classmethod
     def _call_mock_assistant(
@@ -292,28 +348,44 @@ class AIAssistantService:
         truthful facts calculated by Django ORM / Decimal arithmetic.
         """
         household = conversation.household
-        prompt_lower = prompt.lower()
+        prompt_lower = prompt.lower().strip()
         tool_executions = []
         assistant_content = ""
 
         # Intent 1: Bill explanation
         bill_id_match = re.search(r"bill\s*#?(\d+)", prompt_lower)
-        if "explain" in prompt_lower and bill_id_match:
-            bill_id = int(bill_id_match.group(1))
-            res = execute_tool_call("explain_bill", {"bill_id": bill_id}, household, user)
-            exec_rec = AIToolExecution.objects.create(
-                conversation=conversation,
-                message=user_msg,
-                tool_name="explain_bill",
-                tool_arguments={"bill_id": bill_id},
-                execution_result=res,
-                is_success="error" not in res,
-                error_message=res.get("error", ""),
-            )
-            tool_executions.append(exec_rec)
-            if "error" in res:
-                assistant_content = f"I could not retrieve Bill #{bill_id}: {res['error']}"
+        if "explain" in prompt_lower:
+            target_bill = None
+            if bill_id_match:
+                bill_id = int(bill_id_match.group(1))
+                target_bill = Bill.objects.filter(household=household, id=bill_id).first()
             else:
+                # Check category mention (e.g. "explain my electricity bill")
+                matched_cat = None
+                for c_val, c_lbl in BillCategory.choices:
+                    if c_val.lower() in prompt_lower or c_lbl.lower() in prompt_lower:
+                        matched_cat = c_val
+                        break
+                if matched_cat:
+                    target_bill = Bill.objects.filter(household=household, category=matched_cat).order_by("-due_date").first()
+                else:
+                    for p in ["tata", "airtel", "bses", "adani", "bescom", "water", "gas", "netflix"]:
+                        if p in prompt_lower:
+                            target_bill = Bill.objects.filter(household=household, provider_name__icontains=p).order_by("-due_date").first()
+                            break
+
+            if target_bill:
+                res = execute_tool_call("explain_bill", {"bill_id": target_bill.id}, household, user)
+                exec_rec = AIToolExecution.objects.create(
+                    conversation=conversation,
+                    message=user_msg,
+                    tool_name="explain_bill",
+                    tool_arguments={"bill_id": target_bill.id},
+                    execution_result=res,
+                    is_success="error" not in res,
+                    error_message=res.get("error", ""),
+                )
+                tool_executions.append(exec_rec)
                 assistant_content = (
                     f"**Bill #{res['bill_id']} ({res['provider_name']})**\n\n"
                     f"- **Total Amount:** {res['amount']} {res['currency']}\n"
@@ -324,9 +396,14 @@ class AIAssistantService:
                     f"- **Payments Recorded:** {res['payments_count']}\n"
                     f"- **Attached Documents:** {res['attached_documents_count']}"
                 )
+            else:
+                assistant_content = (
+                    "Could not find a matching bill in your household records to explain. "
+                    "Please specify the bill number (e.g. *'Explain bill #5'*) or the service name (e.g. *'Explain my electricity bill'*)."
+                )
 
         # Intent 2: Overdue bills
-        elif any(k in prompt_lower for k in ["overdue", "past due", "late bills"]):
+        elif any(k in prompt_lower for k in ["overdue", "past due", "late bills", "late bill"]):
             only_me = any(k in prompt_lower for k in ["my", "assigned to me", "for me"])
             limit = _extract_quantity_limit(prompt)
             tool_args = {"only_assigned_to_me": only_me}
@@ -359,7 +436,7 @@ class AIAssistantService:
                 assistant_content = header
 
         # Intent 3: Upcoming bills
-        elif any(k in prompt_lower for k in ["upcoming", "due next", "due soon"]):
+        elif any(k in prompt_lower for k in ["upcoming", "due next", "due soon", "coming up"]):
             only_me = any(k in prompt_lower for k in ["my", "assigned to me", "for me"])
             days = 7 if "week" in prompt_lower else 30
             limit = _extract_quantity_limit(prompt)
@@ -392,7 +469,65 @@ class AIAssistantService:
                     header = f"You have **{total_count} upcoming bill{'s' if total_count != 1 else ''}** {scope} due in the next {days} days totaling **{total} INR**:\n\n{items_str}"
                 assistant_content = header
 
-        # Intent 4: Category spending
+        # Intent 4: Total Outstanding Question (e.g. "How much is outstanding?", "How much do I owe?")
+        elif any(k in prompt_lower for k in ["how much is outstanding", "how much do i owe", "what is my balance", "what is outstanding", "how much outstanding", "total outstanding balance", "total balance"]):
+            only_me = any(k in prompt_lower for k in ["my", "do i owe", "for me"])
+            tool_args = {"only_assigned_to_me": only_me}
+            res = execute_tool_call("get_unpaid_bills", tool_args, household, user)
+            exec_rec = AIToolExecution.objects.create(
+                conversation=conversation,
+                message=user_msg,
+                tool_name="get_unpaid_bills",
+                tool_arguments=tool_args,
+                execution_result=res,
+                is_success="error" not in res,
+            )
+            tool_executions.append(exec_rec)
+
+            total = res["total_outstanding_amount"]
+            count = res["unpaid_bills_count"]
+            scope = "assigned to you" if only_me else "across the household"
+            if count == 0:
+                assistant_content = f"You have zero outstanding balance {scope}. All recorded bills have been settled!"
+            else:
+                assistant_content = (
+                    f"The total outstanding balance {scope} is **{total} INR** across **{count} unpaid bill{'s' if count != 1 else ''}**."
+                )
+
+        # Intent 5: Unpaid bills listing (e.g. "Show me one unpaid bill", "Show me only any one unpaid bill", "Show all unpaid bills")
+        elif any(k in prompt_lower for k in ["unpaid", "pending bills", "bills to pay", "pending bill"]):
+            only_me = any(k in prompt_lower for k in ["my", "assigned to me", "for me", "only my"])
+            limit = _extract_quantity_limit(prompt)
+            tool_args = {"only_assigned_to_me": only_me}
+            if limit:
+                tool_args["limit"] = limit
+            res = execute_tool_call("get_unpaid_bills", tool_args, household, user)
+            exec_rec = AIToolExecution.objects.create(
+                conversation=conversation,
+                message=user_msg,
+                tool_name="get_unpaid_bills",
+                tool_arguments=tool_args,
+                execution_result=res,
+                is_success="error" not in res,
+            )
+            tool_executions.append(exec_rec)
+
+            count = len(res["bills"])
+            total_count = res.get("unpaid_bills_count", count)
+            total = res["total_outstanding_amount"]
+            scope = "assigned to you" if only_me else "in the household"
+            if total_count == 0:
+                assistant_content = f"There are currently no unpaid bills {scope}."
+            else:
+                items = [f"- **{b['provider_name']}** ({b['category_display']}): **{b['outstanding_balance']} INR** (status: `{b['status']}`, due {b['due_date']})" for b in res["bills"]]
+                items_str = "\n".join(items)
+                if limit and limit < total_count:
+                    header = f"Showing **{count} of {total_count} unpaid bills** {scope} (Total outstanding: **{total} INR**):\n\n{items_str}"
+                else:
+                    header = f"Found **{total_count} unpaid bill{'s' if total_count != 1 else ''}** {scope} totaling **{total} INR**:\n\n{items_str}"
+                assistant_content = header
+
+        # Intent 6: Category spending / history
         elif any(c in prompt_lower for c in ["electricity", "water", "internet", "gas", "rent", "groceries", "insurance"]):
             # Detect category
             matched_cat = "OTHER"
@@ -422,7 +557,7 @@ class AIAssistantService:
                 f"totals **{total} INR** across {count} bill{'s' if count != 1 else ''} (averaging **{avg} INR** per bill)."
             )
 
-        # Intent 5: Recurring bills
+        # Intent 7: Recurring bills / subscriptions
         elif any(k in prompt_lower for k in ["recurring", "subscription", "subscriptions", "autopay"]):
             limit = _extract_quantity_limit(prompt)
             tool_args = {}
@@ -453,7 +588,7 @@ class AIAssistantService:
                     header = f"Household has **{total_count} active recurring schedule{'s' if total_count != 1 else ''}** totaling **{monthly_total} INR/month**:\n\n{items_str}"
                 assistant_content = header
 
-        # Intent 6: Payment summary
+        # Intent 8: Payment summary / receipts
         elif any(k in prompt_lower for k in ["payment", "payments", "receipt", "receipts", "settled"]):
             limit = _extract_quantity_limit(prompt) or 5
             tool_args = {"limit": limit}
@@ -480,9 +615,8 @@ class AIAssistantService:
                     f"**Recent Payments:**\n{items_str}"
                 )
 
-        # Intent 7: Provider spending
+        # Intent 9: Provider spending
         elif "provider" in prompt_lower or any(p in prompt_lower for p in ["tata power", "airtel", "comcast", "netflix", "spotify"]):
-            # Extract provider name
             pname = "Tata Power" if "tata" in prompt_lower else ("Airtel" if "airtel" in prompt_lower else "Provider")
             res = execute_tool_call("get_provider_spending", {"provider_name": pname, "months": 6}, household, user)
             exec_rec = AIToolExecution.objects.create(
@@ -501,7 +635,7 @@ class AIAssistantService:
                 f"- **Rate Trend:** {res['rate_change_summary']}"
             )
 
-        # Intent 8: Household spending / monthly expenses summary
+        # Intent 10: Household spending / monthly expenses summary
         elif any(k in prompt_lower for k in ["month's", "this month", "monthly", "spending", "expenses", "summary"]):
             res = execute_tool_call("get_household_spending", {}, household, user)
             exec_rec = AIToolExecution.objects.create(
@@ -522,32 +656,39 @@ class AIAssistantService:
                 f"- **Compared to Previous Month ({res['previous_period']}):** {res['percentage_change']} change ({res['difference']} INR)\n"
             )
 
-        # Default: Unpaid bills
-        else:
-            only_me = any(k in prompt_lower for k in ["my", "assigned to me", "for me"])
-            res = execute_tool_call("get_unpaid_bills", {"only_assigned_to_me": only_me}, household, user)
-            exec_rec = AIToolExecution.objects.create(
-                conversation=conversation,
-                message=user_msg,
-                tool_name="get_unpaid_bills",
-                tool_arguments={"only_assigned_to_me": only_me},
-                execution_result=res,
-                is_success="error" not in res,
+        # Intent 11: General / Out-of-scope questions (e.g. weather, sports, jokes, news)
+        elif any(k in prompt_lower for k in ["weather", "temperature", "forecast", "joke", "recipe", "news", "movie", "game", "who won", "president", "capital of", "who is", "what time"]):
+            assistant_content = (
+                "I am **HomePilot AI**, your dedicated household financial and utility assistant. "
+                "Answering general questions like weather, trivia, or general news is outside my supported capabilities.\n\n"
+                "I can help you with:\n"
+                "- 📅 **Upcoming & Overdue Bills**: *'Show my upcoming bills'* or *'Which bills are overdue?'*\n"
+                "- 💳 **Unpaid Liabilities**: *'Show me one unpaid bill'* or *'How much is outstanding?'*\n"
+                "- 📊 **Spending Analysis**: *'How much did we spend on electricity?'* or *'Summarize monthly expenses'*\n"
+                "- 🔁 **Recurring Subscriptions**: *'What are our recurring subscriptions?'*"
             )
-            tool_executions.append(exec_rec)
 
-            count = res["unpaid_bills_count"]
-            total = res["total_outstanding_amount"]
-            scope = "assigned to you" if only_me else "in the household"
-            if count == 0:
-                assistant_content = f"There are currently no unpaid bills {scope}."
-            else:
-                items = [f"- **{b['provider_name']}** ({b['category_display']}): **{b['outstanding_balance']} INR** (status: {b['status']}, due: {b['due_date']})" for b in res["bills"]]
-                items_str = "\n".join(items)
-                assistant_content = (
-                    f"Found **{count} unpaid bill{'s' if count != 1 else ''}** {scope} "
-                    f"totaling **{total} INR**:\n\n{items_str}"
-                )
+        # Intent 12: Greetings / Capabilities
+        elif any(k in prompt_lower for k in ["hello", "hi", "hey", "who are you", "what can you do", "help me", "help"]):
+            assistant_content = (
+                "Hello! I am **HomePilot AI**, your household utility and financial assistant.\n\n"
+                "Here is how I can help your family:\n"
+                "- 📅 **Track Bills**: Ask *'Show upcoming bills'* or *'Show overdue bills'*.\n"
+                "- 💳 **Outstanding Balances**: Ask *'How much is outstanding?'* or *'Show me one unpaid bill'*.\n"
+                "- 📊 **Expense Insights**: Ask *'How much did we spend on electricity last month?'* or *'Summarize this month's spending'*.\n"
+                "- 🔁 **Subscriptions**: Ask *'What are our recurring subscriptions?'*."
+            )
+
+        # Intent 13: Ambiguous or Unrecognized
+        else:
+            assistant_content = (
+                "I'm not sure how to answer that request. As your household utility assistant, I can check your bills, "
+                "summarize expenses, track recurring subscriptions, and calculate outstanding balances.\n\n"
+                "Try asking:\n"
+                "- *'Show me one unpaid bill'*\n"
+                "- *'How much is outstanding?'*\n"
+                "- *'Show upcoming bills'* or *'Which bills are overdue?'*"
+            )
 
         # Track usage
         AIUsageRecord.objects.create(

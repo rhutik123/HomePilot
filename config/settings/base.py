@@ -188,8 +188,9 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# AI Extraction Configuration
+# AI Extraction and Assistant Configuration
 BILL_EXTRACTION_BACKEND = os.getenv("BILL_EXTRACTION_BACKEND", "mock")
+AI_ASSISTANT_BACKEND = os.getenv("AI_ASSISTANT_BACKEND", "mock")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 

@@ -44,6 +44,10 @@ media/
 .DS_Store
 Thumbs.db
 
+# Celery
+celerybeat-schedule
+celerybeat-schedule*
+
 # Testing & Coverage
 .pytest_cache/
 .coverage
