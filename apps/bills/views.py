@@ -16,6 +16,7 @@ from .serializers import (
 )
 from .services.document_parser import DocumentParserService
 from .services.extraction import get_extraction_provider
+from apps.reminders.services.reminder_service import ReminderService
 
 
 class BillViewSet(viewsets.ModelViewSet):
@@ -65,6 +66,9 @@ class BillViewSet(viewsets.ModelViewSet):
         if not household.is_member(self.request.user):
             raise Http404("Household not found or access denied.")
         bill = serializer.save(uploaded_by=self.request.user)
+
+        # Automatically schedule payment reminders
+        ReminderService.create_reminders_for_bill(bill)
 
         # If a document_id was passed, link that document to this bill
         document_id = self.request.data.get("document_id")
@@ -236,6 +240,7 @@ class BillDocumentConfirmAPIView(APIView):
                 bill = serializer.save(uploaded_by=request.user)
                 document.bill = bill
                 document.save(update_fields=["bill"])
+                ReminderService.create_reminders_for_bill(bill)
 
             return Response(
                 {
