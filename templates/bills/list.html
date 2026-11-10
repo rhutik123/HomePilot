@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}All Bills - HomePilot{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Household Bills</h1>
+            <p class="text-sm text-slate-500">Manage and track your family utility bills.</p>
+        </div>
+        <a href="{% url 'dashboard_web:dashboard' %}" class="inline-flex items-center text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="flex items-center space-x-2 border-b border-slate-200 pb-3">
+        <a href="{% url 'dashboard_web:bills-list' %}?status=ALL" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'ALL' %}bg-indigo-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">All</a>
+        <a href="{% url 'dashboard_web:bills-list' %}?status=PENDING" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'PENDING' %}bg-amber-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Pending</a>
+        <a href="{% url 'dashboard_web:bills-list' %}?status=OVERDUE" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'OVERDUE' %}bg-rose-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Overdue</a>
+        <a href="{% url 'dashboard_web:bills-list' %}?status=PAID" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'PAID' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Paid</a>
+    </div>
+
+    <!-- Bills Table / Cards -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {% if bills %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase tracking-wider font-semibold text-slate-500">
+                    <tr>
+                        <th class="px-6 py-3.5">Provider</th>
+                        <th class="px-6 py-3.5">Category</th>
+                        <th class="px-6 py-3.5">Amount</th>
+                        <th class="px-6 py-3.5">Due Date</th>
+                        <th class="px-6 py-3.5">Assigned To</th>
+                        <th class="px-6 py-3.5">Status</th>
+                        <th class="px-6 py-3.5 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for bill in bills %}
+                    <tr class="hover:bg-slate-50/75 transition">
+                        <td class="px-6 py-4 font-semibold text-slate-900">{{ bill.provider_name }}</td>
+                        <td class="px-6 py-4 text-slate-600">{{ bill.get_category_display }}</td>
+                        <td class="px-6 py-4 font-bold text-slate-900">₹{{ bill.amount }}</td>
+                        <td class="px-6 py-4 text-slate-600">{{ bill.due_date }}</td>
+                        <td class="px-6 py-4 text-slate-600">{{ bill.assigned_to.display_name|default:"Unassigned" }}</td>
+                        <td class="px-6 py-4">
+                            {% if bill.status == 'PAID' %}
+                                <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-semibold">Paid</span>
+                            {% elif bill.is_overdue %}
+                                <span class="bg-rose-100 text-rose-800 text-xs px-2.5 py-1 rounded-full font-semibold">Overdue</span>
+                            {% else %}
+                                <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            {% if bill.status != 'PAID' %}
+                            <a href="{% url 'dashboard_web:mark-paid' bill.id %}" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-emerald-200 transition">Mark Paid</a>
+                            {% else %}
+                            <span class="text-xs text-slate-400">Completed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="py-12 text-center text-slate-400 text-sm">
+            No bills found under the current filter.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

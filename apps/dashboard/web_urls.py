@@ -1,5 +1,22 @@
 from django.urls import path
+from .web_views import (
+    index_redirect_view,
+    dashboard_view,
+    bills_list_view,
+    mark_bill_paid_web,
+    web_login_view,
+    web_logout_view,
+    web_register_view,
+)
 
 app_name = "dashboard_web"
 
-urlpatterns = []
+urlpatterns = [
+    path("", index_redirect_view, name="index"),
+    path("dashboard/", dashboard_view, name="dashboard"),
+    path("bills/", bills_list_view, name="bills-list"),
+    path("bills/<int:bill_id>/mark-paid/", mark_bill_paid_web, name="mark-paid"),
+    path("login/", web_login_view, name="login"),
+    path("logout/", web_logout_view, name="logout"),
+    path("register/", web_register_view, name="register"),
+]
