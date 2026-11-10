@@ -38,8 +38,25 @@ class NotificationDispatcherService:
             },
         )
 
+        # Check if at least one channel is active
+        active_channels = []
+        if preferences.email_enabled:
+            active_channels.append("EMAIL")
+        if preferences.in_app_enabled:
+            active_channels.append("IN_APP")
+        if preferences.whatsapp_enabled:
+            active_channels.append("WHATSAPP")
+
+        if not active_channels:
+            err_msg = f"User '{recipient.username}' has disabled all notification channels."
+            logger.warning(f"Reminder {reminder.id}: {err_msg}")
+            return {"success": False, "channels": {}, "error": err_msg}
+
         results = {}
-        email_success = True  # Defaults to True if email channel is disabled
+        errors = []
+        email_success = False
+        in_app_success = False
+        whatsapp_success = False
 
         # 1. Email Channel
         if preferences.email_enabled:
@@ -60,6 +77,8 @@ class NotificationDispatcherService:
                 )
                 results["email"] = {"success": success, "id": delivery_id, "error": error}
                 email_success = success
+                if not success:
+                    errors.append(f"Email failed: {error}")
             except Exception as exc:
                 NotificationDelivery.objects.create(
                     reminder=reminder,
@@ -73,10 +92,9 @@ class NotificationDispatcherService:
                     error_message=str(exc),
                     attempt_number=attempt_number,
                 )
-                raise exc
+                errors.append(f"Email exception: {str(exc)}")
 
         # 2. In-App Notification Channel
-        in_app_success = False
         if preferences.in_app_enabled:
             success, delivery_id, error = InAppChannel.send(reminder, recipient)
             NotificationDelivery.objects.create(
@@ -93,9 +111,10 @@ class NotificationDispatcherService:
             )
             results["in_app"] = {"success": success, "id": delivery_id, "error": error}
             in_app_success = success
+            if not success:
+                errors.append(f"In-App failed: {error}")
 
         # 3. WhatsApp Channel
-        whatsapp_success = False
         if preferences.whatsapp_enabled:
             target_phone = preferences.whatsapp_phone_number
             success, delivery_id, error = WhatsAppChannel.send(reminder, recipient, phone_number=target_phone)
@@ -113,9 +132,12 @@ class NotificationDispatcherService:
             )
             results["whatsapp"] = {"success": success, "id": delivery_id, "error": error}
             whatsapp_success = success
+            if not success:
+                errors.append(f"WhatsApp failed: {error}")
 
-        # Overall dispatch success requires email to succeed if email is enabled;
-        # otherwise requires at least one enabled channel to succeed.
+        # Success criteria:
+        # If email is enabled, it must succeed for the dispatch to be considered successful.
+        # If email is disabled, at least one other enabled channel must succeed.
         if preferences.email_enabled:
             overall_success = email_success
         else:
@@ -124,4 +146,5 @@ class NotificationDispatcherService:
         return {
             "success": overall_success,
             "channels": results,
+            "error": "; ".join(errors) if not overall_success else "",
         }

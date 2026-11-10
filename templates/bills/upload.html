@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Add & Upload Bill - HomePilot{% endblock %}
+{% block title %}Add Household Bill - HomePilot{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">Add Household Bill</h1>
-            <p class="text-sm text-slate-500">Upload a PDF or image bill to let AI extract details, or enter manually.</p>
+            <p class="text-sm text-slate-500">Upload single or multiple digital bills to extract details with AI, or record paper and verbal bills manually.</p>
         </div>
         <a href="{% url 'dashboard_web:dashboard' %}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
             &larr; Back to Dashboard
@@ -15,33 +16,225 @@
     </div>
 
     {% if step == 'upload' %}
-    <!-- Step 1: File Upload Form -->
-    <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition">
-            <span class="text-4xl block mb-2">📄</span>
-            <h3 class="text-base font-semibold text-slate-900">Upload bill document</h3>
-            <p class="text-xs text-slate-500 mt-1">Supports PDF, PNG, JPG, or WEBP (Max 10MB)</p>
+    <!-- Pending Review Queue (if any draft documents exist) -->
+    {% if unreviewed_docs.exists %}
+    <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-6 space-y-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="text-xl">📋</span>
+                <h3 class="text-sm font-bold text-amber-950">Documents Awaiting Your Review ({{ unreviewed_docs.count }})</h3>
+            </div>
+            <span class="text-xs text-amber-800">Saved as drafts until confirmed</span>
+        </div>
+        <div class="divide-y divide-amber-200/60 bg-white rounded-xl border border-amber-200/80 shadow-xs">
+            {% for doc in unreviewed_docs %}
+            <div class="p-3.5 flex items-center justify-between hover:bg-amber-50/30 transition">
+                <div class="flex items-center space-x-3">
+                    <span class="text-lg">📄</span>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-900">{{ doc.file_name }}</p>
+                        <p class="text-[11px] text-slate-500">
+                            Uploaded {{ doc.created_at|timesince }} ago &bull; {{ doc.file_size|filesizeformat }}
+                            {% if doc.extraction_status == 'SUCCESS' %}
+                            <span class="ml-1 text-emerald-700 font-medium">&bull; Parsed</span>
+                            {% elif doc.extraction_status == 'FAILED' %}
+                            <span class="ml-1 text-amber-700 font-medium">&bull; Needs Manual Input</span>
+                            {% endif %}
+                        </p>
+                        {% if doc.is_possible_duplicate %}
+                        <p class="text-[11px] text-amber-700 font-medium mt-0.5">⚠️ Duplicate Checksum Warning: {{ doc.duplicate_warning }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <a href="{% url 'dashboard_web:bill-upload' %}?doc_id={{ doc.id }}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition">
+                    Review & Confirm &rarr;
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
-            <form method="POST" enctype="multipart/form-data" class="mt-6 space-y-4">
+    <!-- Option Selector Tabs -->
+    <div class="bg-slate-100 p-1.5 rounded-2xl flex items-center space-x-2 border border-slate-200">
+        <button type="button" id="tab-btn-upload" onclick="switchTab('upload')" class="flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition {% if mode != 'manual' %}bg-white text-indigo-700 shadow-sm border border-slate-200{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+            📄 Option A: Upload Digital Bill
+        </button>
+        <button type="button" id="tab-btn-manual" onclick="switchTab('manual')" class="flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition {% if mode == 'manual' %}bg-white text-indigo-700 shadow-sm border border-slate-200{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+            ✍️ Option B: Enter Bill Manually
+        </button>
+    </div>
+
+    <!-- PANEL A: Upload Bill Document -->
+    <div id="panel-upload" class="{% if mode == 'manual' %}hidden{% endif %} bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 pb-4">
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">Option A &bull; AI Powered</span>
+            <h2 class="text-lg font-bold text-slate-900 mt-2">Upload Bill Document(s)</h2>
+            <p class="text-xs text-slate-500">AI automatically parses provider, amount, due date, and account numbers. Multiple file uploads supported.</p>
+        </div>
+
+        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition bg-slate-50/50">
+            <span class="text-5xl block mb-3">📄</span>
+            <h3 class="text-base font-semibold text-slate-900">Select or drop bill files</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-4">Supports PDF, scanned PDF, PNG, JPG, JPEG, and WEBP (Max 10MB per file). Select multiple files to upload in batch.</p>
+
+            <form method="POST" enctype="multipart/form-data" class="space-y-4 max-w-md mx-auto">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="upload_file">
-                <input type="file" name="bill_file" required accept=".pdf,.png,.jpg,.jpeg,.webp" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer">
+                <input type="file" name="bill_files" multiple required accept=".pdf,.png,.jpg,.jpeg,.webp" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer border border-slate-200 rounded-xl bg-white">
 
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-sm">
-                    ✨ Upload & Analyze with AI
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-sm flex items-center justify-center space-x-2">
+                    <span>✨ Upload & Analyze with AI</span>
                 </button>
             </form>
         </div>
+
+        <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 flex items-start space-x-3 text-xs text-indigo-900">
+            <span class="text-base">💡</span>
+            <p>
+                <strong>Have a physical, verbal, or handwritten bill?</strong> Click on the <button type="button" onclick="switchTab('manual')" class="underline font-semibold text-indigo-700 hover:text-indigo-900">Enter Bill Manually</button> tab to record it without uploading any file.
+            </p>
+        </div>
     </div>
+
+    <!-- PANEL B: Enter Bill Manually -->
+    <div id="panel-manual" class="{% if mode != 'manual' %}hidden{% endif %} bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <div class="border-b border-slate-100 pb-4">
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">Option B &bull; Independent Manual Entry</span>
+            <h2 class="text-lg font-bold text-slate-900 mt-2">Enter Household Bill Details</h2>
+            <p class="text-xs text-slate-500">Works for paper receipts, handwritten bills, verbal utilities, or when digital copies are unavailable. No file upload required.</p>
+        </div>
+
+        <form method="POST" class="space-y-5">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="manual_bill">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Provider Name -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Provider / Company Name *</label>
+                    <input type="text" name="provider_name" value="{{ manual_data.provider_name|default:'' }}" required placeholder="e.g. Adani Electricity, Tata Power" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Category -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Bill Category *</label>
+                    <select name="category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                        {% for val, label in categories %}
+                        <option value="{{ val }}" {% if manual_data.category == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Amount -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Amount Due *</label>
+                    <input type="number" step="0.01" name="amount" value="{{ manual_data.amount|default:'' }}" required placeholder="0.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Currency -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Currency</label>
+                    <input type="text" name="currency" value="{{ manual_data.currency|default:'INR' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Due Date -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Payment Due Date *</label>
+                    <input type="date" name="due_date" value="{{ manual_data.due_date|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Issue Date -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Issue Date (Optional)</label>
+                    <input type="date" name="issue_date" value="{{ manual_data.issue_date|default:'' }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Consumer / Account / Reference Number -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Consumer / Account # (Optional)</label>
+                    <input type="text" name="reference_number" value="{{ manual_data.reference_number|default:'' }}" placeholder="e.g. CA-99238102" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Assign Payment To Member -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Payment To</label>
+                    <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">-- Unassigned (Household Shared) --</option>
+                        {% for m in members %}
+                        <option value="{{ m.id }}" {% if manual_data.assigned_to == m.id|stringformat:"s" or not manual_data.assigned_to and m.id == user.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Billing Period -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Billing Period (Optional)</label>
+                <input type="text" name="billing_period" value="{{ manual_data.billing_period|default:'' }}" placeholder="e.g. November 2026" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notes (Optional)</label>
+                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Paid in cash to building maintenance; verbal quote...">{{ manual_data.notes|default:'' }}</textarea>
+            </div>
+
+            <div class="pt-4 flex items-center justify-between border-t border-slate-100">
+                <a href="{% url 'dashboard_web:dashboard' %}" class="text-sm font-semibold text-slate-500 hover:text-slate-700">Cancel</a>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-sm flex items-center space-x-2">
+                    <span>💾 Save Manual Bill</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+    function switchTab(target) {
+        const panelUpload = document.getElementById('panel-upload');
+        const panelManual = document.getElementById('panel-manual');
+        const btnUpload = document.getElementById('tab-btn-upload');
+        const btnManual = document.getElementById('tab-btn-manual');
+
+        if (target === 'manual') {
+            panelUpload.classList.add('hidden');
+            panelManual.classList.remove('hidden');
+            btnManual.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition bg-white text-indigo-700 shadow-sm border border-slate-200";
+            btnUpload.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900";
+        } else {
+            panelManual.classList.add('hidden');
+            panelUpload.classList.remove('hidden');
+            btnUpload.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition bg-white text-indigo-700 shadow-sm border border-slate-200";
+            btnManual.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900";
+        }
+    }
+    </script>
 
     {% elif step == 'review' %}
     <!-- Step 2: Review & Confirm Extracted Information -->
     <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         <div class="border-b border-slate-200 pb-4">
-            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">Review Extracted Bill</span>
-            <h2 class="text-lg font-bold text-slate-900 mt-2">Verify Details Before Saving</h2>
-            <p class="text-xs text-slate-500">Please review the extracted information. Edit any missing or uncertain fields.</p>
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">Step 2: Review & Verify</span>
+                {% if extracted_data.provider_used %}
+                <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                    Engine: {{ extracted_data.provider_used|upper }} ({{ extracted_data.model_used|default:"standard" }})
+                </span>
+                {% endif %}
+            </div>
+            <h2 class="text-lg font-bold text-slate-900 mt-2">Verify Bill Details Before Saving</h2>
+            <p class="text-xs text-slate-500">Please review the extracted information below. Correct any fields before finalizing.</p>
         </div>
+
+        {% if current_doc and current_doc.is_possible_duplicate %}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2.5">
+            <span class="text-base">⚠️</span>
+            <div>
+                <p class="font-bold">Possible Duplicate Document Detected</p>
+                <p class="mt-0.5">{{ current_doc.duplicate_warning }} Please check that this bill has not already been recorded.</p>
+            </div>
+        </div>
+        {% endif %}
 
         <form method="POST" class="space-y-4">
             {% csrf_token %}
@@ -51,8 +244,13 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Provider Name -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Provider / Company Name *</label>
-                    <input type="text" name="provider_name" value="{{ extracted_data.provider_name|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Provider / Company Name *
+                        {% if not extracted_data.provider_name %}
+                        <span class="text-amber-600 text-[10px] lowercase font-normal">(needs review)</span>
+                        {% endif %}
+                    </label>
+                    <input type="text" name="provider_name" value="{{ extracted_data.provider_name|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border {% if not extracted_data.provider_name %}border-amber-300 bg-amber-50/20{% else %}border-slate-300{% endif %} text-sm focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <!-- Category -->
@@ -67,8 +265,13 @@
 
                 <!-- Amount -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Amount Due *</label>
-                    <input type="number" step="0.01" name="amount" value="{{ extracted_data.amount|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Amount Due *
+                        {% if not extracted_data.amount %}
+                        <span class="text-amber-600 text-[10px] lowercase font-normal">(needs review)</span>
+                        {% endif %}
+                    </label>
+                    <input type="number" step="0.01" name="amount" value="{{ extracted_data.amount|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border {% if not extracted_data.amount %}border-amber-300 bg-amber-50/20{% else %}border-slate-300{% endif %} text-sm focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <!-- Currency -->
@@ -79,8 +282,13 @@
 
                 <!-- Payment Due Date -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Payment Due Date *</label>
-                    <input type="date" name="due_date" value="{{ extracted_data.due_date|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                        Payment Due Date *
+                        {% if not extracted_data.due_date %}
+                        <span class="text-amber-600 text-[10px] lowercase font-normal">(needs review)</span>
+                        {% endif %}
+                    </label>
+                    <input type="date" name="due_date" value="{{ extracted_data.due_date|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border {% if not extracted_data.due_date %}border-amber-300 bg-amber-50/20{% else %}border-slate-300{% endif %} text-sm focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <!-- Issue Date -->
@@ -99,7 +307,7 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Payment To</label>
                     <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="">-- Select Family Member --</option>
+                        <option value="">-- Unassigned (Household Shared) --</option>
                         {% for m in members %}
                         <option value="{{ m.id }}" {% if m.id == user.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
                         {% endfor %}
@@ -119,7 +327,7 @@
                 <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Optional notes for family members..."></textarea>
             </div>
 
-            <div class="pt-4 flex items-center justify-between">
+            <div class="pt-4 flex items-center justify-between border-t border-slate-100">
                 <a href="{% url 'dashboard_web:bill-upload' %}" class="text-sm font-semibold text-slate-500 hover:text-slate-700">Cancel</a>
                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-sm">
                     💾 Confirm & Save Bill

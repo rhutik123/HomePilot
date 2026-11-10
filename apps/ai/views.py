@@ -20,6 +20,7 @@ from .serializers import (
 )
 from .services.assistant import AIAssistantService
 from .services.anomaly_detector import SpendingAnomalyDetector
+from .services.spending_insights_service import SpendingInsightsService
 from apps.households.models import Household
 
 
@@ -120,7 +121,7 @@ class SpendingInsightViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["post"])
     def generate(self, request):
-        """On-demand trigger to execute anomaly detection across user households."""
+        """On-demand trigger to execute anomaly and trend detection across user households."""
         household_id = request.data.get("household")
         if household_id:
             try:
@@ -133,7 +134,7 @@ class SpendingInsightViewSet(viewsets.ReadOnlyModelViewSet):
 
         new_insights = []
         for hh in households:
-            insights = SpendingAnomalyDetector.analyze_household(hh)
+            insights = SpendingInsightsService.detect_and_save_insights(hh)
             new_insights.extend(insights)
 
         return Response(
@@ -142,6 +143,40 @@ class SpendingInsightViewSet(viewsets.ReadOnlyModelViewSet):
                 "insights": SpendingInsightSerializer(new_insights, many=True).data,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """
+        Returns full deterministic spending analysis and AI narrative explanation
+        for the specified or primary household.
+        """
+        from django.shortcuts import get_object_or_404
+
+        household_id = request.query_params.get("household")
+        if household_id:
+            household = get_object_or_404(
+                Household, id=household_id, memberships__user=request.user
+            )
+        else:
+            household = Household.objects.filter(memberships__user=request.user).first()
+            if not household:
+                return Response(
+                    {"error": "No household found for current user."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        summary_data = SpendingInsightsService.get_full_spending_summary(household)
+        ai_narrative = SpendingInsightsService.generate_ai_explanation(
+            summary_data, household, user=request.user
+        )
+
+        return Response(
+            {
+                "summary": summary_data,
+                "ai_explanation": ai_narrative,
+            },
+            status=status.HTTP_200_OK,
         )
 
 

@@ -3,6 +3,7 @@ from django.conf import settings
 
 
 class ReminderType(models.TextChoices):
+    SEVEN_DAYS_BEFORE = "SEVEN_DAYS_BEFORE", "7 Days Before"
     THREE_DAYS_BEFORE = "THREE_DAYS_BEFORE", "3 Days Before"
     ONE_DAY_BEFORE = "ONE_DAY_BEFORE", "1 Day Before"
     DUE_DATE = "DUE_DATE", "On Due Date"
@@ -12,7 +13,15 @@ class ReminderType(models.TextChoices):
 class BillReminder(models.Model):
     """
     Scheduled reminder for an individual bill payment milestone.
+    Preserves audit history and lifecycle transitions (PENDING, PROCESSING, SENT, FAILED, CANCELLED).
     """
+    class ReminderStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        PROCESSING = "PROCESSING", "Processing"
+        SENT = "SENT", "Sent"
+        FAILED = "FAILED", "Failed"
+        CANCELLED = "CANCELLED", "Cancelled"
+
     bill = models.ForeignKey(
         "bills.Bill",
         on_delete=models.CASCADE,
@@ -27,6 +36,13 @@ class BillReminder(models.Model):
         max_length=30,
         choices=ReminderType.choices,
     )
+    status = models.CharField(
+        max_length=20,
+        choices=ReminderStatus.choices,
+        default=ReminderStatus.PENDING,
+        db_index=True,
+        help_text="Current delivery state (PENDING, PROCESSING, SENT, FAILED, CANCELLED).",
+    )
     is_sent = models.BooleanField(
         default=False,
         db_index=True,
@@ -40,6 +56,14 @@ class BillReminder(models.Model):
         blank=True,
         related_name="received_reminders",
     )
+    retry_count = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of Celery delivery attempts executed.",
+    )
+    error_message = models.TextField(
+        blank=True,
+        help_text="Last recorded failure or exception details.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -50,12 +74,33 @@ class BillReminder(models.Model):
         ordering = ["remind_at", "id"]
 
     def __str__(self):
-        return f"Reminder ({self.reminder_type}) for {self.bill.provider_name} on {self.remind_at}"
+        return f"Reminder ({self.reminder_type}) for {self.bill.provider_name} on {self.remind_at} [{self.status}]"
+
+    def mark_sent(self):
+        """Marks reminder as successfully dispatched."""
+        from django.utils import timezone
+        self.status = self.ReminderStatus.SENT
+        self.is_sent = True
+        self.sent_at = timezone.now()
+        self.error_message = ""
+        self.save(update_fields=["status", "is_sent", "sent_at", "error_message"])
+
+    def mark_failed(self, error_message: str):
+        """Marks reminder as failed after retries exhausted."""
+        self.status = self.ReminderStatus.FAILED
+        self.error_message = error_message
+        self.save(update_fields=["status", "error_message"])
+
+    def mark_cancelled(self):
+        """Cancels reminder when bill is paid, preserving historical record."""
+        self.status = self.ReminderStatus.CANCELLED
+        self.save(update_fields=["status"])
 
 
 class NotificationLog(models.Model):
     """
     Persistent audit trail of all email and notification dispatch attempts.
+    Preserved permanently even if bills or reminders are deleted or modified.
     """
     class Status(models.TextChoices):
         SUCCESS = "SUCCESS", "Success"
@@ -71,8 +116,11 @@ class NotificationLog(models.Model):
     )
     bill = models.ForeignKey(
         "bills.Bill",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="notification_logs",
+        help_text="Associated bill. Preserved with null reference if bill is deleted.",
     )
     recipient_email = models.EmailField()
     subject = models.CharField(max_length=255)
@@ -99,7 +147,7 @@ class NotificationChannel(models.TextChoices):
 
 class NotificationPreference(models.Model):
     """
-    User settings governing which communication channels are active for reminders.
+    User settings governing which communication channels and milestones are active for reminders.
     """
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -114,6 +162,11 @@ class NotificationPreference(models.Model):
         blank=True,
         help_text="E.164 formatted contact number for WhatsApp notifications.",
     )
+    # Milestone scheduling preferences
+    remind_7_days_before = models.BooleanField(default=True, help_text="Notify 7 days prior to payment due date.")
+    remind_3_days_before = models.BooleanField(default=True, help_text="Notify 3 days prior to payment due date.")
+    remind_1_day_before = models.BooleanField(default=True, help_text="Notify 1 day prior to payment due date.")
+    remind_on_due_date = models.BooleanField(default=True, help_text="Notify on the payment due date itself.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -129,6 +182,7 @@ class NotificationPreference(models.Model):
 class InAppNotification(models.Model):
     """
     In-app notification delivered directly into the web dashboard or UI inbox.
+    Preserved permanently even if the underlying bill is deleted.
     """
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -137,8 +191,11 @@ class InAppNotification(models.Model):
     )
     bill = models.ForeignKey(
         "bills.Bill",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="in_app_notifications",
+        help_text="Associated bill. Preserved with null reference if bill is deleted.",
     )
     reminder = models.ForeignKey(
         BillReminder,
@@ -166,11 +223,14 @@ class NotificationDelivery(models.Model):
     """
     Detailed delivery attempt record tracking multi-channel dispatch,
     provider responses, and retry history.
+    Preserved permanently for auditing.
     """
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
+        PROCESSING = "PROCESSING", "Processing"
         SUCCESS = "SUCCESS", "Success"
         FAILED = "FAILED", "Failed"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     reminder = models.ForeignKey(
         BillReminder,
@@ -181,8 +241,11 @@ class NotificationDelivery(models.Model):
     )
     bill = models.ForeignKey(
         "bills.Bill",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="deliveries",
+        help_text="Associated bill. Preserved with null reference if bill is deleted.",
     )
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,

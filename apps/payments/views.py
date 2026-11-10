@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import viewsets, status, generics
 from rest_framework.views import APIView
@@ -60,6 +61,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         bill = serializer.validated_data["bill"]
         amount = serializer.validated_data["amount"]
+        currency = serializer.validated_data.get("currency", "")
         payment_date = serializer.validated_data.get("payment_date")
         payment_method = serializer.validated_data.get("payment_method")
         tx_ref = serializer.validated_data.get("transaction_reference", "")
@@ -71,6 +73,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 bill=bill,
                 user=request.user,
                 amount=amount,
+                currency=currency,
                 payment_date=payment_date,
                 payment_method=payment_method,
                 transaction_reference=tx_ref,
@@ -137,7 +140,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 {
                     "message": "Payment adjustment recorded.",
                     "adjustment": PaymentAdjustmentSerializer(adjustment).data,
-                    "new_payment_amount": str(payment.amount),
+                    "new_payment_amount": str(payment.net_amount),
                     "bill_remaining_balance": str(payment.bill.outstanding_balance),
                     "bill_status": payment.bill.status,
                 },
@@ -145,6 +148,41 @@ class PaymentViewSet(viewsets.ModelViewSet):
             )
         except (DjangoValidationError, Exception) as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"])
+    def void(self, request, pk=None):
+        """Completely voids a payment transaction (restricted to owners)."""
+        payment = self.get_object()
+        reason = request.data.get("reason", "Voided via API")
+        try:
+            adjustment = PaymentService.void_payment(payment, request.user, reason=reason)
+            payment.refresh_from_db()
+            payment.bill.refresh_from_db()
+            return Response(
+                {
+                    "message": "Payment voided successfully.",
+                    "adjustment": PaymentAdjustmentSerializer(adjustment).data,
+                    "payment_status": payment.status,
+                    "bill_remaining_balance": str(payment.bill.outstanding_balance),
+                    "bill_status": payment.bill.status,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except DjangoValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["get"])
+    def receipt(self, request, pk=None):
+        """Securely streams receipt bytes after verifying household tenant authorization."""
+        payment = self.get_object()
+        if not hasattr(payment, "receipt") or not payment.receipt.file:
+            raise Http404("Receipt file not found for this payment.")
+        return FileResponse(
+            payment.receipt.file.open("rb"),
+            content_type=payment.receipt.mime_type or "application/octet-stream",
+            as_attachment=True,
+            filename=payment.receipt.file_name,
+        )
 
 
 class BillPaymentListCreateAPIView(generics.ListCreateAPIView):
@@ -181,6 +219,7 @@ class BillPaymentListCreateAPIView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         amount = serializer.validated_data["amount"]
+        currency = serializer.validated_data.get("currency", "")
         payment_date = serializer.validated_data.get("payment_date")
         payment_method = serializer.validated_data.get("payment_method")
         tx_ref = serializer.validated_data.get("transaction_reference", "")
@@ -192,6 +231,7 @@ class BillPaymentListCreateAPIView(generics.ListCreateAPIView):
                 bill=bill,
                 user=request.user,
                 amount=amount,
+                currency=currency,
                 payment_date=payment_date,
                 payment_method=payment_method,
                 transaction_reference=tx_ref,

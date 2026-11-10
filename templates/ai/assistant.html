@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}HomePilot AI Assistant - {{ household.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Top Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🤖</span>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Household AI Assistant</h1>
+                    <p class="text-sm text-slate-500">
+                        Ask natural-language questions about your bills, spending trends, and payment milestones.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 flex-wrap">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                🔒 Strict Tool-Calling Guardrails Enabled
+            </span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                🏠 {{ household.name }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Chat Workspace -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        
+        <!-- Sidebar: Conversation Threads & Controls -->
+        <div class="lg:col-span-1 space-y-4">
+            <form method="POST" action="{% url 'dashboard_web:ai-assistant-new' %}">
+                {% csrf_token %}
+                <input type="hidden" name="household_id" value="{{ household.id }}">
+                <button type="submit" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition text-sm">
+                    <span>+ New Conversation</span>
+                </button>
+            </form>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Your Conversations</h3>
+                <div class="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
+                    {% for conv in conversations %}
+                    <a href="{% url 'dashboard_web:ai-assistant-conversation' conv.id %}"
+                       class="block px-3 py-2.5 rounded-xl text-xs font-medium transition {% if conv.id == active_conversation.id %}bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold shadow-sm{% else %}text-slate-600 hover:bg-slate-50 border border-transparent{% endif %}">
+                        <div class="truncate">{{ conv.title }}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">{{ conv.created_at|date:"M d, Y • H:i" }}</div>
+                    </a>
+                    {% empty %}
+                    <p class="text-xs text-slate-400 italic py-2 text-center">No conversation history yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Guardrails Card -->
+            <div class="bg-gradient-to-br from-slate-50 to-indigo-50/40 rounded-2xl border border-indigo-100 p-4 text-xs text-slate-600 space-y-2">
+                <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span>🛡️</span> Financial Integrity Mandates
+                </div>
+                <p class="text-[11px] leading-relaxed text-slate-500">
+                    HomePilot AI uses controlled Python tool calls to query live PostgreSQL records. The model cannot execute arbitrary SQL or hallucinate financial numbers.
+                </p>
+                <div class="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400">
+                    <strong>Active Tools:</strong> Upcoming bills, Overdue analysis, Household spending, Category history, Provider trend, Payment summary, Recurring commitments.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Active Chat Area -->
+        <div class="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[650px]">
+            
+            <!-- Chat Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60 rounded-t-2xl">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-900">{{ active_conversation.title }}</h2>
+                    <p class="text-[11px] text-slate-500">Tenant: {{ household.name }} • User: {{ user.display_name }}</p>
+                </div>
+                <div class="text-xs text-slate-400">
+                    {{ chat_messages.count }} messages
+                </div>
+            </div>
+
+            <!-- Messages Stream -->
+            <div id="chat-messages-container" class="flex-grow p-6 overflow-y-auto space-y-4">
+                {% if not chat_messages %}
+                <!-- Empty State Prompt -->
+                <div class="text-center py-12 px-4 space-y-4 max-w-md mx-auto">
+                    <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-inner">
+                        💬
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">How can I help you today?</h3>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Ask questions about upcoming due dates, category costs, overdue liabilities, or monthly trends.
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% for msg in chat_messages %}
+                    {% if msg.role == "USER" %}
+                    <!-- User Message Bubble -->
+                    <div class="flex justify-end">
+                        <div class="max-w-[80%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm text-sm">
+                            <p class="whitespace-pre-wrap leading-relaxed">{{ msg.content }}</p>
+                            <span class="block text-[10px] text-indigo-200 mt-1 text-right">{{ msg.created_at|date:"H:i" }}</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Assistant Message Bubble -->
+                    <div class="flex justify-start items-start gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm shrink-0 border border-indigo-200 mt-0.5">
+                            🤖
+                        </div>
+                        <div class="max-w-[85%] bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm text-sm space-y-3">
+                            <!-- Tool Execution Badges -->
+                            {% if msg.tool_executions.all %}
+                            <div class="flex flex-wrap gap-1.5 pb-2 border-b border-slate-200/80">
+                                {% for te in msg.tool_executions.all %}
+                                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium {% if te.is_success %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %}">
+                                    <span>⚙️ {{ te.tool_name }}</span>
+                                    {% if te.is_success %}
+                                    <span class="text-[9px] text-emerald-600 uppercase font-bold">✓ Executed</span>
+                                    {% else %}
+                                    <span class="text-[9px] text-rose-600 uppercase font-bold">✗ Failed</span>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Prose Content -->
+                            <div class="prose prose-sm max-w-none prose-slate text-sm whitespace-pre-wrap leading-relaxed">
+                                {{ msg.content }}
+                            </div>
+                            <span class="block text-[10px] text-slate-400 mt-1">{{ msg.created_at|date:"H:i" }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Quick Suggestion Chips -->
+            <div class="px-6 py-2 bg-slate-50/70 border-t border-slate-100 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
+                <span class="text-slate-400 font-medium text-[11px] shrink-0">Try asking:</span>
+                <button type="button" onclick="sendSuggestion('Show my upcoming bills')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                    📅 Upcoming bills
+                </button>
+                <button type="button" onclick="sendSuggestion('Which bills are overdue?')" class="shrink-0 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                    ⚠️ Overdue bills
+                </button>
+                <button type="button" onclick="sendSuggestion('Summarize this month\'s household expenses')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                    📊 This month's summary
+                </button>
+                <button type="button" onclick="sendSuggestion('How much did we spend on electricity last month?')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                    ⚡ Electricity spend
+                </button>
+                <button type="button" onclick="sendSuggestion('What are our recurring subscriptions?')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                    🔁 Recurring bills
+                </button>
+                <button type="button" onclick="sendSuggestion('Show recent payments summary')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                    💳 Payment summary
+                </button>
+            </div>
+
+            <!-- Chat Input Bar -->
+            <div class="p-4 border-t border-slate-200 bg-white rounded-b-2xl">
+                <form id="chat-form" method="POST" action="{% url 'dashboard_web:ai-assistant-send' active_conversation.id %}" class="flex items-center gap-3">
+                    {% csrf_token %}
+                    <input type="text"
+                           id="prompt-input"
+                           name="prompt"
+                           required
+                           autocomplete="off"
+                           placeholder="Ask HomePilot AI anything about your household bills..."
+                           class="flex-grow px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-inner">
+                    <button type="submit"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-sm shrink-0">
+                        <span>Send</span>
+                        <svg class="w-4 h-4 fill-current rotate-90" viewBox="0 0 20 20">
+                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-scroll chat to latest message
+    function scrollToBottom() {
+        const container = document.getElementById('chat-messages-container');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+    window.addEventListener('load', scrollToBottom);
+
+    // Quick suggestion chip handler
+    function sendSuggestion(text) {
+        const input = document.getElementById('prompt-input');
+        const form = document.getElementById('chat-form');
+        if (input && form) {
+            input.value = text;
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Financial Analytics & Reports - {{ household.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header & Date Filter Toolbar -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">📊</span>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Household Reports & Analytics</h1>
+                    <p class="text-sm text-slate-500">
+                        Detailed expense breakdown, payment history, provider trends, and verified exports.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Presets & Date Range -->
+        <form method="GET" action="{% url 'dashboard_web:reports' %}" class="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="household" value="{{ household.id }}">
+            
+            <!-- Quick Presets -->
+            <div class="inline-flex rounded-xl shadow-xs bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+                <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=this_month"
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'this_month' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                    This Month
+                </a>
+                <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=last_3_months"
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'last_3_months' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                    Last 3 Months
+                </a>
+                <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=last_6_months"
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'last_6_months' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                    Last 6 Months
+                </a>
+                <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=this_year"
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'this_year' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                    This Year
+                </a>
+            </div>
+
+            <!-- Custom Date Inputs -->
+            <div class="flex items-center gap-1.5 text-xs bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
+                <input type="date" name="date_from" value="{{ date_from }}" class="px-2 py-1 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <span class="text-slate-400 font-medium">to</span>
+                <input type="date" name="date_to" value="{{ date_to }}" class="px-2 py-1 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1 rounded-lg transition">Apply</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Executive KPI Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <!-- Total Billed -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Billed</span>
+            <span class="text-xl font-bold text-slate-900 mt-1 block">₹{{ overview.total_billed }}</span>
+            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ overview.bill_counts.total }} bills total</span>
+        </div>
+        <!-- Total Paid -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Paid</span>
+            <span class="text-xl font-bold text-emerald-600 mt-1 block">₹{{ overview.total_paid }}</span>
+            <span class="text-[11px] text-emerald-700 font-medium mt-0.5 block">{{ overview.settlement_rate_pct }}% settlement</span>
+        </div>
+        <!-- Outstanding -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Outstanding Debt</span>
+            <span class="text-xl font-bold text-amber-600 mt-1 block">₹{{ overview.total_outstanding }}</span>
+            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ overview.bill_counts.pending }} pending</span>
+        </div>
+        <!-- Overdue -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Overdue Amount</span>
+            <span class="text-xl font-bold text-rose-600 mt-1 block">₹{{ overview.overdue_amount }}</span>
+            <span class="text-[11px] text-rose-700 font-medium mt-0.5 block">{{ overview.bill_counts.overdue }} overdue bills</span>
+        </div>
+        <!-- Recurring Commitments -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Recurring Total</span>
+            <span class="text-xl font-bold text-indigo-600 mt-1 block">₹{{ recurring.estimated_monthly_recurring_total }}</span>
+            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ recurring.active_schedules_count }} active schedules</span>
+        </div>
+        <!-- Due Next 7 Days -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Due Next 7 Days</span>
+            <span class="text-xl font-bold text-indigo-900 mt-1 block">₹{{ obligations.due_next_week_total }}</span>
+            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ obligations.due_next_week_count }} bills due soon</span>
+        </div>
+    </div>
+
+    <!-- Export Action Center -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-bold tracking-tight flex items-center gap-2">
+                    <span>📑</span> Export Financial Statements & Reports
+                </h2>
+                <p class="text-xs text-slate-300 mt-1">
+                    Download official statements and spreadsheets securely scoped to household <strong>{{ household.name }}</strong>.
+                </p>
+            </div>
+            <!-- Export Buttons -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- PDF Statement -->
+                <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=pdf&type=statement&date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shadow-sm">
+                    <span>📄</span> Download PDF Statement
+                </a>
+                <!-- Payments PDF Statement -->
+                <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=pdf&type=payments&date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shadow-sm">
+                    <span>💳</span> Payments Statement (PDF)
+                </a>
+                <!-- CSV Bills -->
+                <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=bills&date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="inline-flex items-center gap-1.5 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
+                    <span>📊</span> Bills (CSV)
+                </a>
+                <!-- CSV Payments -->
+                <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=payments&date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="inline-flex items-center gap-1.5 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
+                    <span>💳</span> Payments (CSV)
+                </a>
+                <!-- CSV Overdue -->
+                <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=overdue"
+                   class="inline-flex items-center gap-1.5 bg-white text-rose-700 hover:bg-rose-50 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
+                    <span>⚠️</span> Overdue (CSV)
+                </a>
+                <!-- CSV Recurring -->
+                <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=recurring"
+                   class="inline-flex items-center gap-1.5 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
+                    <span>🔁</span> Recurring (CSV)
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Tables Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Category Spending Distribution -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>🏷️</span> Category Spending Breakdown
+                </h3>
+                <span class="text-xs text-slate-400">{{ categories|length }} categories</span>
+            </div>
+
+            <div class="space-y-3">
+                {% for cat in categories %}
+                <div class="space-y-1">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-semibold text-slate-800">{{ cat.category_display }} ({{ cat.bill_count }} bills)</span>
+                        <span class="font-bold text-slate-900">₹{{ cat.total_amount }} <span class="text-slate-400 font-normal">({{ cat.percentage_of_total }}%)</span></span>
+                    </div>
+                    <!-- Visual Progress Bar -->
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ cat.percentage_of_total }}%;"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-xs text-slate-400 italic py-4 text-center">No category spending records found for this period.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Provider Spending Analysis -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>🏢</span> Service Provider Distribution
+                </h3>
+                <span class="text-xs text-slate-400">{{ providers|length }} providers</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
+                            <th class="pb-2">Provider</th>
+                            <th class="pb-2">Bills</th>
+                            <th class="pb-2">Total Billed</th>
+                            <th class="pb-2">Outstanding</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for prov in providers %}
+                        <tr>
+                            <td class="py-2.5 font-semibold text-slate-800">{{ prov.provider_name }}</td>
+                            <td class="py-2.5 text-slate-600">{{ prov.bill_count }}</td>
+                            <td class="py-2.5 font-bold text-slate-900">₹{{ prov.total_amount }}</td>
+                            <td class="py-2.5 font-medium {% if prov.outstanding_balance != '0.00' %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                                ₹{{ prov.outstanding_balance }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="py-4 text-center text-slate-400 italic">No provider records found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Month-over-Month Spending Trends -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>📈</span> Month-over-Month Spending History (Last 6 Months)
+            </h3>
+            <span class="text-xs text-slate-400">Chronological summary</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
+                        <th class="pb-2.5">Month</th>
+                        <th class="pb-2.5">Bills</th>
+                        <th class="pb-2.5">Total Billed</th>
+                        <th class="pb-2.5">Total Paid</th>
+                        <th class="pb-2.5">MoM Change</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for t in trends %}
+                    <tr>
+                        <td class="py-3 font-semibold text-slate-900">{{ t.label }}</td>
+                        <td class="py-3 text-slate-600">{{ t.bill_count }}</td>
+                        <td class="py-3 font-bold text-slate-900">₹{{ t.total_billed }}</td>
+                        <td class="py-3 text-emerald-600 font-medium">₹{{ t.total_paid }}</td>
+                        <td class="py-3">
+                            {% if t.mom_change_pct is not None %}
+                                {% if t.mom_change_pct > 0 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
+                                    +{{ t.mom_change_pct }}% ▲
+                                </span>
+                                {% elif t.mom_change_pct < 0 %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                    {{ t.mom_change_pct }}% ▼
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+                                    0.0% —
+                                </span>
+                                {% endif %}
+                            {% else %}
+                            <span class="text-slate-400 italic">Baseline</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-4 text-center text-slate-400 italic">No historical trend records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Payments Ledger Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span>💳</span> Recent Payment Settlements & Receipts
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Total settled: <strong>₹{{ payments_data.total_amount_settled }}</strong> across {{ payments_data.total_payments_count }} transactions.</p>
+            </div>
+            <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=payments" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition">
+                Export Payments CSV →
+            </a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
+                        <th class="pb-2">Date</th>
+                        <th class="pb-2">Bill / Provider</th>
+                        <th class="pb-2">Amount</th>
+                        <th class="pb-2">Method</th>
+                        <th class="pb-2">Transaction Ref</th>
+                        <th class="pb-2">Paid By</th>
+                        <th class="pb-2">Receipt</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for p in payments_data.recent_payments %}
+                    <tr>
+                        <td class="py-2.5 text-slate-600">{{ p.payment_date }}</td>
+                        <td class="py-2.5 font-semibold text-slate-800">{{ p.provider_name }}</td>
+                        <td class="py-2.5 font-bold text-emerald-600">₹{{ p.amount }}</td>
+                        <td class="py-2.5 text-slate-600 uppercase">{{ p.payment_method }}</td>
+                        <td class="py-2.5 font-mono text-[11px] text-slate-500">{{ p.transaction_reference }}</td>
+                        <td class="py-2.5 text-slate-700">{{ p.paid_by }}</td>
+                        <td class="py-2.5">
+                            {% if p.has_receipt %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ✓ Verified
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400 italic">None</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-4 text-center text-slate-400 italic">No payments recorded for this period.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

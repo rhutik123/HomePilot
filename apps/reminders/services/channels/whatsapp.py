@@ -48,6 +48,7 @@ class WhatsAppChannel:
 
         api_token = getattr(settings, "WHATSAPP_API_TOKEN", None)
         phone_number_id = getattr(settings, "WHATSAPP_PHONE_NUMBER_ID", None)
+        simulation_enabled = getattr(settings, "WHATSAPP_SIMULATION_ENABLED", False)
 
         if api_token and phone_number_id:
             # Live dispatch via Meta Graph API v18.0+
@@ -77,10 +78,18 @@ class WhatsAppChannel:
                 error_msg = f"WhatsApp Cloud API dispatch failed: {str(exc)}"
                 logger.exception(error_msg)
                 return False, "", error_msg
-        else:
-            # Development / Sandbox simulation
-            delivery_id = f"wa_mock_{uuid.uuid4().hex[:12]}"
+        elif simulation_enabled:
+            # Explicit development / sandbox simulation mode
+            delivery_id = f"wa_sim_{uuid.uuid4().hex[:12]}"
             logger.info(
                 f"[WHATSAPP SIMULATION] Message to {target_phone}: {message_body} (Ref: {delivery_id})"
             )
             return True, delivery_id, ""
+        else:
+            error_msg = (
+                "WhatsApp Business Platform is not configured. Live credentials "
+                "(WHATSAPP_API_TOKEN, WHATSAPP_PHONE_NUMBER_ID) and Meta-approved templates "
+                "are required. Refer to docs/WHATSAPP_BUSINESS_API_SETUP.md."
+            )
+            logger.warning(error_msg)
+            return False, "", error_msg

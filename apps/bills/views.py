@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import transaction
 from django.http import FileResponse, Http404
 from django.utils import timezone
@@ -8,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
-from .models import Bill, BillDocument, BillStatus
+from .models import Bill, BillDocument, BillStatus, BillCategory
 from .serializers import (
     BillSerializer,
     BillDocumentSerializer,
@@ -16,7 +17,12 @@ from .serializers import (
 )
 from .services.document_parser import DocumentParserService
 from .services.extraction import get_extraction_provider
+from .services.bill_service import BillService
 from apps.reminders.services.reminder_service import ReminderService
+from apps.payments.services.payment_service import PaymentService
+from apps.payments.models import PaymentMethod
+from apps.audit.services import AuditService
+from apps.audit.models import AuditEvent
 
 
 class BillViewSet(viewsets.ModelViewSet):
@@ -61,44 +67,68 @@ class BillViewSet(viewsets.ModelViewSet):
         return BillSerializer
 
     def perform_create(self, serializer):
-        # Verify user is a member of the target household
         household = serializer.validated_data["household"]
         if not household.is_member(self.request.user):
             raise Http404("Household not found or access denied.")
-        bill = serializer.save(uploaded_by=self.request.user)
 
-        # Automatically schedule payment reminders
-        ReminderService.create_reminders_for_bill(bill)
-
-        # If a document_id was passed, link that document to this bill
         document_id = self.request.data.get("document_id")
+        doc = None
         if document_id:
-            try:
-                document = BillDocument.objects.get(
-                    id=document_id,
-                    household=household,
-                )
-                document.bill = bill
-                document.save(update_fields=["bill"])
-            except BillDocument.DoesNotExist:
-                pass
+            doc = BillDocument.objects.filter(id=document_id, household=household).first()
+
+        data = serializer.validated_data
+        bill = BillService.create_bill(
+            household=household,
+            uploaded_by=self.request.user,
+            provider_name=data["provider_name"],
+            amount=data["amount"],
+            due_date=data["due_date"],
+            category=data.get("category", BillCategory.OTHER),
+            currency=data.get("currency", "INR"),
+            assigned_to=data.get("assigned_to"),
+            issue_date=data.get("issue_date"),
+            billing_period=data.get("billing_period", ""),
+            reference_number=data.get("reference_number", ""),
+            notes=data.get("notes", ""),
+            document=doc,
+            source="API_UPLOAD" if doc else "API_MANUAL",
+        )
+        serializer.instance = bill
 
     def perform_update(self, serializer):
-        instance = self.get_object()
-        old_due_date = instance.due_date
-        old_assigned_to = instance.assigned_to
-
-        bill = serializer.save()
-
-        # Defect #5 Fix: Reschedule reminders if due date or assignee was changed
-        if bill.due_date != old_due_date or bill.assigned_to != old_assigned_to:
-            ReminderService.reschedule_reminders_for_bill(bill)
+        bill = self.get_object()
+        data = serializer.validated_data
+        updated_bill = BillService.update_bill(
+            bill=bill,
+            user=self.request.user,
+            **data,
+        )
+        serializer.instance = updated_bill
 
     @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
-        """Mark a bill as paid and cancel future reminders."""
+        """Mark a bill as paid, synchronize payments ledger, and cancel future reminders."""
         bill = self.get_object()
-        bill.mark_as_paid()
+        if bill.outstanding_balance > Decimal("0.00"):
+            PaymentService.record_payment(
+                bill=bill,
+                user=request.user,
+                amount=bill.outstanding_balance,
+                payment_date=timezone.localdate(),
+                payment_method=PaymentMethod.OTHER,
+                notes="Marked paid via API mark_paid action.",
+            )
+        else:
+            bill.mark_as_paid()
+
+        AuditService.log(
+            action=AuditEvent.Action.BILL_PAID,
+            actor=request.user,
+            household=bill.household,
+            entity=bill,
+            description=f"Bill '{bill.provider_name}' marked as paid by {request.user.display_name}.",
+        )
+        bill.refresh_from_db()
         return Response(
             {
                 "message": f"Bill '{bill.provider_name}' marked as paid.",
@@ -153,6 +183,14 @@ class BillDocumentUploadAPIView(APIView):
         )
         if serializer.is_valid():
             document = serializer.save()
+            AuditService.log(
+                action=AuditEvent.Action.DOCUMENT_UPLOADED,
+                actor=request.user,
+                household=document.household,
+                entity=document,
+                description=f"Document '{document.file_name}' uploaded.",
+                metadata={"file_name": document.file_name, "file_size": document.file_size, "mime_type": document.mime_type},
+            )
             return Response(
                 {
                     "message": "Document uploaded successfully.",
@@ -200,6 +238,15 @@ class BillDocumentExtractAPIView(APIView):
             document.extraction_status = BillDocument.ExtractionStatus.SUCCESS
             document.save(update_fields=["raw_text", "extracted_data", "extraction_status"])
 
+            AuditService.log(
+                action=AuditEvent.Action.EXTRACTION_COMPLETED,
+                actor=request.user,
+                household=document.household,
+                entity=document,
+                description=f"AI extraction completed for '{document.file_name}'.",
+                metadata={"missing_fields": extracted_result.missing_fields, "provider": provider.__class__.__name__},
+            )
+
             return Response(
                 {
                     "message": "Information extracted successfully. Please review before saving.",
@@ -213,6 +260,14 @@ class BillDocumentExtractAPIView(APIView):
         except Exception as e:
             document.extraction_status = BillDocument.ExtractionStatus.FAILED
             document.save(update_fields=["extraction_status"])
+            AuditService.log(
+                action=AuditEvent.Action.EXTRACTION_FAILED,
+                actor=request.user,
+                household=document.household,
+                entity=document,
+                description=f"AI extraction failed for '{document.file_name}': {str(e)}",
+                metadata={"error": str(e)},
+            )
             return Response(
                 {
                     "error": f"Extraction failed: {str(e)}",
@@ -247,11 +302,23 @@ class BillDocumentConfirmAPIView(APIView):
 
         serializer = BillSerializer(data=data, context={"request": request})
         if serializer.is_valid():
-            with transaction.atomic():
-                bill = serializer.save(uploaded_by=request.user)
-                document.bill = bill
-                document.save(update_fields=["bill"])
-                ReminderService.create_reminders_for_bill(bill)
+            vdata = serializer.validated_data
+            bill = BillService.create_bill(
+                household=document.household,
+                uploaded_by=request.user,
+                provider_name=vdata["provider_name"],
+                amount=vdata["amount"],
+                due_date=vdata["due_date"],
+                category=vdata.get("category", BillCategory.OTHER),
+                currency=vdata.get("currency", "INR"),
+                assigned_to=vdata.get("assigned_to"),
+                issue_date=vdata.get("issue_date"),
+                billing_period=vdata.get("billing_period", ""),
+                reference_number=vdata.get("reference_number", ""),
+                notes=vdata.get("notes", ""),
+                document=document,
+                source="API_DOCUMENT_CONFIRM",
+            )
 
             return Response(
                 {

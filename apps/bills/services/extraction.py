@@ -11,6 +11,16 @@ from .schemas import ExtractedBillData
 logger = logging.getLogger(__name__)
 
 
+class AIExtractionError(Exception):
+    """Raised when an AI extraction provider fails."""
+    pass
+
+
+class AIExtractionConfigurationError(AIExtractionError):
+    """Raised when an AI provider is selected but missing required credentials."""
+    pass
+
+
 class BaseExtractionProvider(ABC):
     """
     Abstract interface for bill information extraction providers.
@@ -156,6 +166,8 @@ class MockExtractionProvider(BaseExtractionProvider):
             bill_number=bill_number,
             field_confidences=field_confidences,
             confidence_notes="Extracted via Mock Extraction Provider.",
+            provider_used="mock",
+            model_used="rule-based-mock",
         )
         result.compute_missing_fields()
         return result
@@ -167,18 +179,25 @@ class GeminiExtractionProvider(BaseExtractionProvider):
     Enforces structured JSON extraction, field-level confidence, and missing field detection.
     """
     MODEL_NAME = "gemini-2.5-flash"
+    provider_name = "gemini"
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, allow_fallback: bool = False):
         self.api_key = api_key or getattr(settings, "GEMINI_API_KEY", "")
+        self.allow_fallback = allow_fallback or getattr(settings, "BILL_EXTRACTION_FALLBACK_TO_MOCK", False)
 
     def extract(self, text: str, mime_type: str = "") -> ExtractedBillData:
         if not self.api_key:
-            logger.warning("GEMINI_API_KEY is not configured. Falling back to MockExtractionProvider.")
-            return MockExtractionProvider().extract(text, mime_type)
+            raise AIExtractionConfigurationError(
+                "GEMINI_API_KEY is not configured in the environment. Cannot perform AI extraction."
+            )
 
         if not text or len(text.strip()) < 10:
             logger.info("Document contains insufficient text. Returning empty extraction.")
-            res = ExtractedBillData(confidence_notes="Document text is empty or too short for AI extraction.")
+            res = ExtractedBillData(
+                confidence_notes="Document text is empty or too short for AI extraction.",
+                provider_used="gemini",
+                model_used=self.MODEL_NAME,
+            )
             res.compute_missing_fields()
             return res
 
@@ -235,13 +254,25 @@ class GeminiExtractionProvider(BaseExtractionProvider):
                 raw_json = re.sub(r"\s*```$", "", raw_json)
 
             data = json.loads(raw_json)
-            return self._parse_json_response(data)
+            result = self._parse_json_response(data)
+            result.provider_used = "gemini"
+            result.model_used = self.MODEL_NAME
+            return result
 
+        except json.JSONDecodeError as json_err:
+            logger.error("Gemini AI returned non-JSON output: %s", json_err)
+            raise AIExtractionError(f"AI returned invalid JSON: {json_err}")
         except Exception as exc:
-            logger.error(f"Gemini AI extraction error: {exc}. Falling back to rule-based mock extractor.")
-            fallback = MockExtractionProvider().extract(text, mime_type)
-            fallback.confidence_notes = f"AI Provider error ({type(exc).__name__}). Fallback extractor applied."
-            return fallback
+            error_type = exc.__class__.__name__
+            logger.error("Gemini AI extraction failed (%s): %s", error_type, str(exc))
+            if self.allow_fallback:
+                logger.warning("Falling back to rule-based mock extractor because allow_fallback is enabled.")
+                fallback = MockExtractionProvider().extract(text, mime_type)
+                fallback.provider_used = "mock"
+                fallback.model_used = "rule-based-mock-fallback"
+                fallback.confidence_notes = f"Fallback extractor used due to AI provider failure: {str(exc)}"
+                return fallback
+            raise AIExtractionError(f"Gemini AI extraction failed ({error_type}): {str(exc)}")
 
     def _parse_json_response(self, data: Dict[str, Any]) -> ExtractedBillData:
         """Parses and validates Gemini JSON output into typed ExtractedBillData."""
@@ -295,6 +326,8 @@ class GeminiExtractionProvider(BaseExtractionProvider):
             taxes_and_fees=parse_decimal(data.get("taxes_and_fees")),
             field_confidences=field_confidences,
             confidence_notes=f"Extracted via Gemini AI ({self.MODEL_NAME}).",
+            provider_used="gemini",
+            model_used=self.MODEL_NAME,
         )
         result.compute_missing_fields()
         return result
@@ -308,7 +341,7 @@ class LLMExtractionProvider(GeminiExtractionProvider):
 def get_extraction_provider() -> BaseExtractionProvider:
     """Factory function returning the configured extraction provider."""
     backend = getattr(settings, "BILL_EXTRACTION_BACKEND", "mock").lower()
-    if backend in ["gemini", "openai", "llm"]:
-        api_key = getattr(settings, "GEMINI_API_KEY", "") or getattr(settings, "OPENAI_API_KEY", "")
+    if backend in ["gemini", "google", "llm"]:
+        api_key = getattr(settings, "GEMINI_API_KEY", "")
         return GeminiExtractionProvider(api_key=api_key)
     return MockExtractionProvider()

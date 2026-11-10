@@ -13,9 +13,13 @@ psycopg2-binary>=2.9.10
 celery>=5.4
 redis>=5.0
 
+# Production WSGI Server
+gunicorn>=22.0
+
 # Document & Image Processing
 pypdf>=5.0
 Pillow>=10.4
+pytesseract>=0.3.10
 reportlab>=4.0
 
 # AI & LLM Providers

@@ -11,6 +11,8 @@ from .serializers import (
     HouseholdMemberSerializer,
     AddMemberSerializer,
 )
+from apps.audit.models import AuditEvent
+from apps.audit.services import AuditService
 
 
 class HouseholdViewSet(viewsets.ModelViewSet):
@@ -68,6 +70,15 @@ class HouseholdViewSet(viewsets.ModelViewSet):
         )
         if serializer.is_valid():
             membership = serializer.save()
+            AuditService.log(
+                action=AuditEvent.Action.MEMBER_ADDED,
+                actor=request.user,
+                household=household,
+                entity=membership,
+                description=f"Added {membership.user.display_name} to {household.name} as {membership.role}",
+                metadata={"user_id": membership.user_id, "role": membership.role},
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
             return Response(
                 {
                     "message": f"Successfully added {membership.user.display_name} to {household.name}.",
@@ -108,6 +119,14 @@ class HouseholdViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        AuditService.log(
+            action=AuditEvent.Action.MEMBER_REMOVED,
+            actor=request.user,
+            household=household,
+            description=f"Removed user {membership.user.display_name} (ID: {membership.user_id}) from household {household.name}",
+            metadata={"removed_user_id": membership.user_id, "role": membership.role},
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
         membership.delete()
         return Response(
             {"message": "Member removed successfully."},

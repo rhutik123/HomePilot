@@ -24,6 +24,12 @@
                         <a href="{% url 'dashboard_web:dashboard' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">Dashboard</a>
                         <a href="{% url 'dashboard_web:bills-list' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">All Bills</a>
                         <a href="{% url 'dashboard_web:bill-upload' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">+ Add Bill</a>
+                        <a href="{% url 'dashboard_web:recurring-list' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">Recurring Bills</a>
+                        <a href="{% url 'dashboard_web:spending-insights' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">✨ Insights</a>
+                        <a href="{% url 'dashboard_web:reports' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">📊 Reports</a>
+                        <a href="{% url 'dashboard_web:ai-assistant' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">🤖 Assistant</a>
+                        <a href="{% url 'dashboard_web:notifications-inbox' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">🔔 Alerts</a>
+                        <a href="{% url 'dashboard_web:audit-log' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">🛡️ Audit</a>
                         <a href="{% url 'dashboard_web:household' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">Family Household</a>
                     </div>
                     {% endif %}
@@ -31,7 +37,10 @@
                 <div class="flex items-center space-x-4">
                     {% if user.is_authenticated %}
                         <span class="text-sm text-indigo-100 hidden sm:inline">Signed in as <strong>{{ user.display_name }}</strong></span>
-                        <a href="{% url 'dashboard_web:logout' %}" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-lg transition">Sign Out</a>
+                        <form method="POST" action="{% url 'dashboard_web:logout' %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-lg transition">Sign Out</button>
+                        </form>
                     {% else %}
                         <a href="{% url 'dashboard_web:login' %}" class="text-indigo-100 hover:text-white text-sm font-medium">Log In</a>
                         <a href="{% url 'dashboard_web:register' %}" class="bg-white text-indigo-600 hover:bg-indigo-50 text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-sm">Register</a>

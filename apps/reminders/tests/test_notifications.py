@@ -16,6 +16,7 @@ from apps.reminders.models import (
     NotificationDelivery,
     NotificationChannel,
 )
+from django.test import override_settings
 from apps.reminders.services.dispatcher import NotificationDispatcherService
 from apps.reminders.services.channels.whatsapp import WhatsAppChannel
 from apps.reminders.tasks import send_bill_reminder_task
@@ -113,6 +114,7 @@ class TestMultiChannelDispatcher:
         assert WhatsAppChannel.validate_phone_number("abc") is False
         assert WhatsAppChannel.validate_phone_number(None) is False
 
+    @override_settings(WHATSAPP_SIMULATION_ENABLED=True)
     def test_dispatcher_creates_in_app_and_audit_deliveries(self, sample_reminder, test_user):
         # Enable all 3 channels
         prefs, _ = NotificationPreference.objects.get_or_create(user=test_user)

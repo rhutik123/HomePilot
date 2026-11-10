@@ -242,11 +242,11 @@ class TestDocumentManagementAndExtraction:
         assert extracted.missing_fields == []
 
     def test_gemini_extraction_provider_fallback_on_api_error(self):
-        """Tests that GeminiExtractionProvider falls back gracefully to rule-based mock on API failure."""
+        """Tests that GeminiExtractionProvider falls back gracefully to rule-based mock when allow_fallback is enabled."""
         mock_client = MagicMock()
         mock_client.models.generate_content.side_effect = RuntimeError("QuotaExceeded or NetworkTimeout")
 
-        provider = GeminiExtractionProvider(api_key="test-mock-gemini-key")
+        provider = GeminiExtractionProvider(api_key="test-mock-gemini-key", allow_fallback=True)
 
         with patch("google.genai.Client", return_value=mock_client):
             # Input contains text parseable by fallback mock

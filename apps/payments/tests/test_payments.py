@@ -64,7 +64,7 @@ class TestPaymentManagement:
             due_date=today + timedelta(days=10),
         )
         ReminderService.create_reminders_for_bill(bill)
-        assert bill.reminders.count() == 3
+        assert bill.reminders.count() == 4
 
         payload = {
             "bill_id": bill.id,
@@ -83,8 +83,9 @@ class TestPaymentManagement:
         assert bill.total_paid == Decimal("2500.00")
         assert bill.outstanding_balance == Decimal("0.00")
         assert bill.paid_at is not None
-        # Pending reminders must be cancelled
-        assert bill.reminders.filter(is_sent=False).count() == 0
+        # Pending reminders must be cancelled, preserving history
+        assert bill.reminders.filter(status=BillReminder.ReminderStatus.PENDING).count() == 0
+        assert bill.reminders.filter(status=BillReminder.ReminderStatus.CANCELLED).count() == 4
 
     def test_record_partial_payments_sequence(self):
         """Multiple partial payments incrementally reduce balance until full settlement."""
@@ -115,7 +116,7 @@ class TestPaymentManagement:
         assert bill.outstanding_balance == Decimal("3000.00")
         assert bill.paid_at is None
         # Reminders should still exist for remaining balance
-        assert bill.reminders.count() == 3
+        assert bill.reminders.filter(status=BillReminder.ReminderStatus.PENDING).count() == 4
 
         # 2. Second partial payment: 1,000
         res2 = self.client.post(
@@ -146,7 +147,8 @@ class TestPaymentManagement:
         assert bill.total_paid == Decimal("5000.00")
         assert bill.outstanding_balance == Decimal("0.00")
         assert bill.paid_at is not None
-        assert bill.reminders.filter(is_sent=False).count() == 0
+        assert bill.reminders.filter(status=BillReminder.ReminderStatus.PENDING).count() == 0
+        assert bill.reminders.filter(status=BillReminder.ReminderStatus.CANCELLED).count() == 4
 
     def test_overpayment_rejected(self):
         """Payment amount exceeding outstanding balance is strictly rejected."""

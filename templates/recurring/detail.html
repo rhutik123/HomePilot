@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}{{ schedule.provider_name }} - Recurring Schedule Details - HomePilot{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center space-x-3">
+                <h1 class="text-2xl font-bold text-slate-900">{{ schedule.provider_name }}</h1>
+                {% if schedule.is_active %}
+                <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-semibold">Active</span>
+                {% else %}
+                <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Paused</span>
+                {% endif %}
+                <span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-md font-medium">{{ schedule.get_frequency_display }}</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">
+                Category: <span class="font-medium text-slate-700">{{ schedule.get_category_display }}</span> &bull; 
+                Assigned: <span class="font-medium text-slate-700">{{ schedule.assigned_to.display_name|default:"Unassigned" }}</span> &bull;
+                Next Due: <span class="font-semibold {% if schedule.next_due_date < today and schedule.is_active %}text-rose-600{% else %}text-slate-900{% endif %}">{{ schedule.next_due_date }}</span>
+            </p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <a href="{% url 'dashboard_web:recurring-edit' schedule.id %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3.5 py-2 rounded-xl transition">
+                ✏️ Edit Schedule
+            </a>
+            <a href="{% url 'dashboard_web:recurring-list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-2 py-1">
+                &larr; Back to Recurring Bills
+            </a>
+        </div>
+    </div>
+
+    <!-- Schedule Configuration Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
+            <p class="text-xs text-slate-500 font-medium">Expected Amount</p>
+            <p class="text-xl font-bold text-slate-900 mt-0.5">₹{{ schedule.expected_amount }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
+            <p class="text-xs text-slate-500 font-medium">Recurrence Interval</p>
+            <p class="text-sm font-bold text-slate-900 mt-1">Every {{ schedule.interval_count }} {{ schedule.get_frequency_display|lower }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
+            <p class="text-xs text-slate-500 font-medium">Billing Cycle Day</p>
+            <p class="text-sm font-bold text-slate-900 mt-1">Day {{ schedule.day_of_month }} of month</p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm text-center">
+            <p class="text-xs text-slate-500 font-medium">Generated Bills</p>
+            <p class="text-xl font-bold text-indigo-600 mt-0.5">{{ occurrences.count }}</p>
+        </div>
+    </div>
+
+    <!-- Quick Operations Toolbar -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <span class="text-xs text-slate-500 font-medium">Schedule Operations</span>
+        <div class="flex items-center space-x-2">
+            <!-- Manual Trigger -->
+            <form method="POST" action="{% url 'dashboard_web:recurring-list' %}" class="inline" onsubmit="return confirm('Generate upcoming bill occurrence right now?');">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="trigger">
+                <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition shadow-xs">
+                    ⚡ Generate Next Bill Now
+                </button>
+            </form>
+
+            <!-- Pause / Resume Toggle -->
+            <form method="POST" action="{% url 'dashboard_web:recurring-list' %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="schedule_id" value="{{ schedule.id }}">
+                {% if schedule.is_active %}
+                <input type="hidden" name="action" value="pause">
+                <button type="submit" class="bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold px-3.5 py-2 rounded-xl border border-amber-200 transition">
+                    ⏸ Pause Automatic Generation
+                </button>
+                {% else %}
+                <input type="hidden" name="action" value="resume">
+                <button type="submit" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold px-3.5 py-2 rounded-xl border border-emerald-200 transition">
+                    ▶ Resume Automatic Generation
+                </button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Occurrences History Ledger -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-0">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="text-lg">📋</span>
+                <h3 class="text-sm font-bold text-slate-900">Generated Bill Occurrences ({{ occurrences.count }})</h3>
+            </div>
+            <span class="text-xs text-slate-400">Unique period constraints prevent duplicate billing</span>
+        </div>
+
+        {% if occurrences %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 text-xs uppercase tracking-wider font-semibold text-slate-500">
+                    <tr>
+                        <th class="px-6 py-3.5">Period Token</th>
+                        <th class="px-6 py-3.5">Billing Period</th>
+                        <th class="px-6 py-3.5">Due Date</th>
+                        <th class="px-6 py-3.5">Actual Bill Amount</th>
+                        <th class="px-6 py-3.5">Status</th>
+                        <th class="px-6 py-3.5">Generated At</th>
+                        <th class="px-6 py-3.5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for occ in occurrences %}
+                    <tr class="hover:bg-slate-50/75 transition">
+                        <td class="px-6 py-4 font-mono text-xs font-bold text-indigo-700">{{ occ.period_identifier }}</td>
+                        <td class="px-6 py-4 text-xs text-slate-700 font-medium">{{ occ.bill.billing_period|default:"-" }}</td>
+                        <td class="px-6 py-4 text-xs text-slate-600">{{ occ.bill.due_date }}</td>
+                        <td class="px-6 py-4">
+                            <span class="font-bold text-slate-900">₹{{ occ.bill.amount }}</span>
+                            {% if occ.bill.amount != schedule.expected_amount %}
+                            <span class="block text-[10px] text-slate-400">Differs from expected (₹{{ schedule.expected_amount }})</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if occ.bill.status == 'PAID' %}
+                            <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-semibold">Paid</span>
+                            {% elif occ.bill.status == 'PARTIALLY_PAID' %}
+                            <span class="bg-sky-100 text-sky-800 text-xs px-2.5 py-1 rounded-full font-semibold">Partially Paid</span>
+                            {% elif occ.bill.is_overdue %}
+                            <span class="bg-rose-100 text-rose-800 text-xs px-2.5 py-1 rounded-full font-semibold">Overdue</span>
+                            {% else %}
+                            <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-xs text-slate-500">{{ occ.generated_at|date:'Y-m-d H:i' }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'dashboard_web:bill-detail' occ.bill.id %}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition">
+                                View Bill Ledger &rarr;
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-slate-400 text-xs">
+            No bills have been generated for this schedule yet. Click <strong>"Generate Next Bill Now"</strong> to create the first bill occurrence.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -120,3 +120,34 @@ class RecurringScheduleViewSet(viewsets.ModelViewSet):
         occurrences = schedule.occurrences.select_related("bill").all()
         serializer = RecurringOccurrenceSerializer(occurrences, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["get"])
+    def missed(self, request):
+        """Lists active recurring schedules that have missed past due dates."""
+        missed = RecurringScheduleService.detect_missed_schedules(household=None)
+        user_missed = [
+            {
+                "schedule_id": m["schedule"].id,
+                "provider_name": m["schedule"].provider_name,
+                "missed_period": m["missed_period"],
+                "missed_due_date": m["missed_due_date"].isoformat(),
+                "days_overdue": m["days_overdue"],
+            }
+            for m in missed
+            if m["schedule"].household.is_member(request.user)
+        ]
+        return Response(user_missed, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def catch_up(self, request, pk=None):
+        """Generates missed bill occurrences for overdue cycles."""
+        schedule = self.get_object()
+        bills = RecurringScheduleService.catch_up_missed_occurrences(schedule, request.user)
+        return Response(
+            {
+                "message": f"Generated {len(bills)} catch-up bills for {schedule.provider_name}.",
+                "generated_count": len(bills),
+                "next_due_date": schedule.next_due_date.isoformat(),
+            },
+            status=status.HTTP_200_OK,
+        )

@@ -47,6 +47,7 @@ LOCAL_APPS = [
     "apps.reminders.apps.RemindersConfig",
     "apps.ai.apps.AIConfig",
     "apps.analytics.apps.AnalyticsConfig",
+    "apps.audit.apps.AuditConfig",
     "apps.dashboard.apps.DashboardConfig",
 ]
 
@@ -191,6 +192,12 @@ CELERY_BEAT_SCHEDULE = {
 BILL_EXTRACTION_BACKEND = os.getenv("BILL_EXTRACTION_BACKEND", "mock")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+# WhatsApp Business Platform Configuration
+WHATSAPP_API_TOKEN = os.getenv("WHATSAPP_API_TOKEN", "")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "")
+WHATSAPP_SIMULATION_ENABLED = os.getenv("WHATSAPP_SIMULATION_ENABLED", "False").lower() in ("true", "1")
 
 # Email Configuration (Django 6+ MAILERS format)
 MAILERS = {

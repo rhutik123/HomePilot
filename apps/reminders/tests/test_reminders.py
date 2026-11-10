@@ -42,7 +42,7 @@ class TestReminderAutomation:
         HouseholdMembership.objects.create(household=self.household, user=self.member, role=HouseholdMembership.Role.MEMBER)
 
     def test_reminder_dates_calculated_accurately(self):
-        """Milestones are created for 3 days before, 1 day before, and on the due date."""
+        """Milestones are created for 7 days before, 3 days before, 1 day before, and on the due date."""
         today = timezone.localdate()
         due_date = today + timedelta(days=10)
         bill = Bill.objects.create(
@@ -55,9 +55,10 @@ class TestReminderAutomation:
         )
 
         reminders = ReminderService.create_reminders_for_bill(bill)
-        assert len(reminders) == 3
+        assert len(reminders) == 4
 
         types_and_dates = {r.reminder_type: r.remind_at for r in reminders}
+        assert types_and_dates[ReminderType.SEVEN_DAYS_BEFORE] == due_date - timedelta(days=7)
         assert types_and_dates[ReminderType.THREE_DAYS_BEFORE] == due_date - timedelta(days=3)
         assert types_and_dates[ReminderType.ONE_DAY_BEFORE] == due_date - timedelta(days=1)
         assert types_and_dates[ReminderType.DUE_DATE] == due_date
@@ -65,9 +66,10 @@ class TestReminderAutomation:
         # Recipient is assigned member
         for r in reminders:
             assert r.sent_to == self.member
+            assert r.status == BillReminder.ReminderStatus.PENDING
 
     def test_past_milestones_are_not_scheduled(self):
-        """If a bill is due tomorrow, 3-day reminder is omitted."""
+        """If a bill is due tomorrow, 7-day and 3-day reminders are omitted."""
         today = timezone.localdate()
         due_date = today + timedelta(days=1)
         bill = Bill.objects.create(
@@ -79,8 +81,9 @@ class TestReminderAutomation:
         )
 
         reminders = ReminderService.create_reminders_for_bill(bill)
-        # 3 days before is in the past, so only 1-day-before and due-date are created
+        # 7 and 3 days before are in the past, so only 1-day-before and due-date are created
         types = [r.reminder_type for r in reminders]
+        assert ReminderType.SEVEN_DAYS_BEFORE not in types
         assert ReminderType.THREE_DAYS_BEFORE not in types
         assert ReminderType.ONE_DAY_BEFORE in types
         assert ReminderType.DUE_DATE in types
@@ -102,7 +105,7 @@ class TestReminderAutomation:
         assert BillReminder.objects.filter(bill=bill).count() == 3
 
     def test_paid_bills_cancel_future_reminders(self):
-        """Marking a bill as paid deletes all pending reminders."""
+        """Marking a bill as paid cancels pending reminders without deleting historical records."""
         today = timezone.localdate()
         bill = Bill.objects.create(
             household=self.household,
@@ -112,11 +115,12 @@ class TestReminderAutomation:
             due_date=today + timedelta(days=7),
         )
         ReminderService.create_reminders_for_bill(bill)
-        assert BillReminder.objects.filter(bill=bill).count() == 3
+        assert BillReminder.objects.filter(bill=bill).count() == 4
 
         bill.mark_as_paid()
-        # Pending reminders must be deleted
-        assert BillReminder.objects.filter(bill=bill).count() == 0
+        # Pending reminders must be cancelled, preserving records in DB
+        assert BillReminder.objects.filter(bill=bill, status=BillReminder.ReminderStatus.CANCELLED).count() == 4
+        assert BillReminder.objects.filter(bill=bill, status=BillReminder.ReminderStatus.PENDING).count() == 0
 
     def test_send_bill_reminder_task_execution(self):
         """Executing reminder task dispatches email and creates log."""

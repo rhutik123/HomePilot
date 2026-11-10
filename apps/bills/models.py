@@ -129,7 +129,7 @@ class Bill(models.Model):
         Updates status to PAID, PARTIALLY_PAID, OVERDUE, or PENDING.
         """
         if hasattr(self, "payments") and self.payments.exists():
-            paid_sum = sum((p.amount for p in self.payments.all()), Decimal("0.00"))
+            paid_sum = sum((getattr(p, "net_amount", p.amount) for p in self.payments.all()), Decimal("0.00"))
         else:
             paid_sum = self.total_paid or Decimal("0.00")
 
@@ -142,7 +142,8 @@ class Bill(models.Model):
                 self.paid_at = timezone.now()
             # Stop future pending reminders
             if hasattr(self, "reminders"):
-                self.reminders.filter(is_sent=False).delete()
+                from apps.reminders.services.reminder_service import ReminderService
+                ReminderService.cancel_pending_reminders(self)
         elif self.total_paid > Decimal("0.00"):
             self.status = BillStatus.PARTIALLY_PAID
             self.paid_at = None
@@ -166,7 +167,8 @@ class Bill(models.Model):
 
         # Stop future pending reminders
         if hasattr(self, "reminders"):
-            self.reminders.filter(is_sent=False).delete()
+            from apps.reminders.services.reminder_service import ReminderService
+            ReminderService.cancel_pending_reminders(self)
 
     @property
     def is_overdue(self):
@@ -210,6 +212,17 @@ class BillDocument(models.Model):
     )
     file_name = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField(help_text="Size in bytes")
+    file_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        help_text="SHA-256 hash of file content for duplicate detection within household.",
+    )
+    is_possible_duplicate = models.BooleanField(
+        default=False,
+        help_text="Flagged when an identical document hash already exists in this household.",
+    )
+    duplicate_warning = models.CharField(max_length=255, blank=True)
     mime_type = models.CharField(max_length=100)
     raw_text = models.TextField(blank=True, help_text="Text extracted from file.")
     extraction_status = models.CharField(

@@ -15,6 +15,12 @@ class PaymentMethod(models.TextChoices):
     OTHER = "OTHER", "Other"
 
 
+class PaymentStatus(models.TextChoices):
+    COMPLETED = "COMPLETED", "Completed"
+    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED", "Partially Refunded"
+    VOIDED = "VOIDED", "Voided / Reversed"
+
+
 class Payment(models.Model):
     """
     Granular payment transaction recorded against a household bill.
@@ -45,6 +51,17 @@ class Payment(models.Model):
         decimal_places=2,
         help_text="Payment amount.",
     )
+    currency = models.CharField(
+        max_length=10,
+        default="INR",
+        help_text="Currency code (e.g. INR, USD).",
+    )
+    status = models.CharField(
+        max_length=25,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.COMPLETED,
+        help_text="Payment lifecycle status.",
+    )
     payment_date = models.DateField(
         default=timezone.localdate,
         help_text="Date the payment was completed.",
@@ -62,6 +79,15 @@ class Payment(models.Model):
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def net_amount(self) -> Decimal:
+        """Original payment amount plus any subsequent adjustments."""
+        if hasattr(self, "adjustments"):
+            adj_sum = sum((a.amount for a in self.adjustments.all()), Decimal("0.00"))
+        else:
+            adj_sum = sum((a.amount for a in self.adjustments_set.all()), Decimal("0.00"))
+        return max(Decimal("0.00"), self.amount + adj_sum)
 
     class Meta:
         db_table = "homepilot_payments"

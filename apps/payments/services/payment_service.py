@@ -6,7 +6,9 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from apps.bills.models import Bill, BillStatus
-from apps.payments.models import Payment, PaymentReceipt, PaymentAdjustment, PaymentMethod
+from apps.payments.models import Payment, PaymentReceipt, PaymentAdjustment, PaymentMethod, PaymentStatus
+from apps.audit.services import AuditService
+from apps.audit.models import AuditEvent
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,7 @@ class PaymentService:
         bill: Bill,
         user,
         amount: Decimal,
+        currency: str = "",
         payment_date=None,
         payment_method: str = PaymentMethod.UPI,
         transaction_reference: str = "",
@@ -61,6 +64,8 @@ class PaymentService:
                 household=locked_bill.household,
                 paid_by=user,
                 amount=amount,
+                currency=currency or locked_bill.currency,
+                status=PaymentStatus.COMPLETED,
                 payment_date=payment_date,
                 payment_method=payment_method,
                 transaction_reference=transaction_reference.strip(),
@@ -69,6 +74,15 @@ class PaymentService:
 
             # Recalculate bill balance and advance status
             locked_bill.recalculate_balance()
+
+            AuditService.log(
+                action=AuditEvent.Action.PAYMENT_RECORDED,
+                actor=user,
+                household=locked_bill.household,
+                entity=payment,
+                description=f"Recorded payment of {payment.amount} {locked_bill.currency} for Bill #{bill.id}.",
+                metadata={"amount": str(payment.amount), "method": payment.payment_method},
+            )
 
         logger.info(
             f"Recorded payment #{payment.id} of {payment.amount} for Bill #{bill.id}. "
@@ -116,11 +130,14 @@ class PaymentService:
         with transaction.atomic():
             bill = Bill.objects.select_for_update().get(id=payment.bill_id)
 
-            # Update payment amount
-            payment.amount = payment.amount + amount
-            if payment.amount < Decimal("0.00"):
+            # Preserve historical payment.amount; evaluate net amount through cumulative adjustments
+            adj_sum_before = sum((a.amount for a in payment.adjustments.all()), Decimal("0.00"))
+            new_net = payment.amount + adj_sum_before + amount
+
+            if new_net < Decimal("0.00"):
                 raise ValidationError("Payment amount after adjustment cannot be negative.")
-            payment.save(update_fields=["amount", "updated_at"])
+            if new_net > bill.amount:
+                raise ValidationError("Payment amount after adjustment cannot exceed total bill amount.")
 
             adjustment = PaymentAdjustment.objects.create(
                 payment=payment,
@@ -129,6 +146,59 @@ class PaymentService:
                 reason=reason.strip(),
             )
 
+            # Update status reflecting adjusted state
+            if new_net == Decimal("0.00"):
+                payment.status = PaymentStatus.VOIDED
+            elif new_net < payment.amount:
+                payment.status = PaymentStatus.PARTIALLY_REFUNDED
+            else:
+                payment.status = PaymentStatus.COMPLETED
+            payment.save(update_fields=["status", "updated_at"])
+
             bill.recalculate_balance()
 
+            AuditService.log(
+                action=AuditEvent.Action.PAYMENT_ADJUSTED,
+                actor=adjusted_by,
+                household=bill.household,
+                entity=adjustment,
+                description=f"Adjustment of {amount} on Payment #{payment.id}. Reason: {reason}.",
+                metadata={"amount": str(amount), "reason": reason, "new_net_amount": str(new_net)},
+            )
+
+            if payment.status == PaymentStatus.VOIDED:
+                AuditService.log(
+                    action=AuditEvent.Action.PAYMENT_REVERSED,
+                    actor=adjusted_by,
+                    household=bill.household,
+                    entity=payment,
+                    description=f"Payment #{payment.id} reversed/voided. Reason: {reason}.",
+                    metadata={"adjustment_id": adjustment.id, "reason": reason, "original_amount": str(payment.amount)},
+                )
+
         return adjustment
+
+    @classmethod
+    def void_payment(
+        cls,
+        payment: Payment,
+        user,
+        reason: str = "Voided by household owner",
+    ) -> PaymentAdjustment:
+        """
+        Completely voids a payment transaction by applying a full reversal adjustment.
+        Preserves complete audit and payment history.
+        """
+        if not user or not payment.household.is_owner(user):
+            raise ValidationError("Only household owners can void payments.")
+
+        current_net = payment.net_amount
+        if current_net <= Decimal("0.00"):
+            raise ValidationError("Payment has already been fully voided or refunded.")
+
+        return cls.record_adjustment(
+            payment=payment,
+            adjusted_by=user,
+            amount=-current_net,
+            reason=reason.strip() or "Voided by household owner",
+        )

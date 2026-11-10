@@ -144,6 +144,9 @@ class SpendingInsight(models.Model):
         EXPENSE_SPIKE = "EXPENSE_SPIKE", "Expense Spike"
         UPCOMING_EXPENSE_FORECAST = "UPCOMING_EXPENSE_FORECAST", "Upcoming Expense Forecast"
         CATEGORY_TREND = "CATEGORY_TREND", "Category Trend"
+        RATE_INCREASE = "RATE_INCREASE", "Provider Rate Increase"
+        MONTHLY_COMPARISON = "MONTHLY_COMPARISON", "Monthly Comparison"
+        RECURRING_SUMMARY = "RECURRING_SUMMARY", "Recurring Commitments"
 
     class Severity(models.TextChoices):
         INFO = "INFO", "Informational"

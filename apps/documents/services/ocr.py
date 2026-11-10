@@ -85,8 +85,27 @@ class DocumentParserEngine:
                     return combined_text, "EMBEDDED_PDF"
 
                 logger.info("PDF contains sparse or no embedded text. Document is likely a scanned PDF.")
-                # Attempt OCR on scanned PDF pages if OCR service is available
-                # (In future Phase 1 enhancements, pdf2image renders pages to images for OCR)
+                # Attempt OCR on scanned PDF pages by extracting embedded page images
+                scanned_pages_text = []
+                for page_idx, page in enumerate(reader.pages):
+                    page_ocr_parts = []
+                    try:
+                        page_images = getattr(page, "images", [])
+                        for img_obj in page_images:
+                            img_data = getattr(img_obj, "data", None)
+                            if img_data:
+                                extracted_img_text = self.ocr_service.extract_text_from_image(img_data)
+                                if extracted_img_text:
+                                    page_ocr_parts.append(extracted_img_text)
+                    except Exception as img_exc:
+                        logger.warning(f"Failed extracting images on PDF page {page_idx}: {img_exc}")
+
+                    if page_ocr_parts:
+                        scanned_pages_text.append("\n".join(page_ocr_parts).strip())
+
+                if scanned_pages_text:
+                    return "\n\n".join(scanned_pages_text).strip(), "SCANNED_PDF_OCR"
+
                 if combined_text:
                     return combined_text, "EMBEDDED_PDF"
 

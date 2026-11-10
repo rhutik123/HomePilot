@@ -25,6 +25,20 @@ class TestFileValidation:
         file_obj = SimpleUploadedFile("bill.png", png_content, content_type="image/png")
         assert validate_bill_document(file_obj) is True
 
+    def test_valid_webp_passes(self):
+        """A valid WebP file signature (RIFF....WEBP) passes validation."""
+        webp_content = b"RIFF\x24\x00\x00\x00WEBPVP8 \x18\x00\x00\x00"
+        file_obj = SimpleUploadedFile("bill.webp", webp_content, content_type="image/webp")
+        assert validate_bill_document(file_obj) is True
+
+    def test_spoofed_riff_non_webp_rejected(self):
+        """A file with .webp extension starting with RIFF but with non-WEBP container (e.g. WAVE) is rejected."""
+        riff_wave_content = b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00"
+        file_obj = SimpleUploadedFile("fake.webp", riff_wave_content, content_type="image/webp")
+        with pytest.raises(ValidationError) as exc:
+            validate_bill_document(file_obj)
+        assert "File content signature does not match" in str(exc.value)
+
     def test_disallowed_extension_rejected(self):
         """Disallowed extensions like .exe or .txt are rejected."""
         file_obj = SimpleUploadedFile("malware.exe", b"%PDF-1.4 Fake", content_type="application/octet-stream")

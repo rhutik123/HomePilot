@@ -29,6 +29,8 @@ class ExtractedBillData:
     overall_confidence: float = 0.0
     confidence_notes: Optional[str] = None
     missing_fields: List[str] = field(default_factory=list)
+    provider_used: str = "mock"
+    model_used: Optional[str] = None
 
     def __post_init__(self):
         # 1. Normalize Category
@@ -98,4 +100,6 @@ class ExtractedBillData:
             "overall_confidence": self.overall_confidence,
             "confidence_notes": self.confidence_notes,
             "missing_fields": self.missing_fields,
+            "provider_used": self.provider_used,
+            "model_used": self.model_used,
         }

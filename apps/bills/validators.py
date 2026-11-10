@@ -50,8 +50,14 @@ def validate_bill_document(file_obj):
     is_valid_signature = False
     for sig in MAGIC_SIGNATURES:
         if header.startswith(sig):
-            is_valid_signature = True
-            break
+            # Strict WebP validation: A RIFF container must have 'WEBP' at offset 8-12
+            if sig == b"RIFF":
+                if len(header) >= 12 and header[8:12] == b"WEBP":
+                    is_valid_signature = True
+                    break
+            else:
+                is_valid_signature = True
+                break
 
     if not is_valid_signature:
         raise ValidationError("File content signature does not match a valid PDF or image format.")

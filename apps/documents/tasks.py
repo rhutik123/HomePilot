@@ -9,6 +9,8 @@ from .models import DocumentProcessingJob, ExtractionResult
 from apps.bills.models import Bill
 from apps.bills.services.document_parser import DocumentParserService
 from apps.bills.services.extraction import get_extraction_provider
+from apps.audit.models import AuditEvent
+from apps.audit.services import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +89,15 @@ def process_document_job_task(self, job_id: int):
             job.completed_at = timezone.now()
             job.save(update_fields=["status", "completed_at"])
 
+            AuditService.log(
+                action=AuditEvent.Action.EXTRACTION_COMPLETED,
+                actor=document.uploaded_by,
+                household=document.household,
+                entity=document,
+                description=f"Document #{document.id} OCR & AI extraction succeeded.",
+                metadata={"provider": provider.__class__.__name__, "confidence": str(confidence_score), "is_duplicate": possible_duplicate},
+            )
+
         logger.info(f"Successfully processed DocumentProcessingJob #{job.id} for {document.file_name}.")
         return True
 
@@ -95,6 +106,15 @@ def process_document_job_task(self, job_id: int):
         job.status = DocumentProcessingJob.Status.FAILED
         job.error_message = str(exc)
         job.save(update_fields=["status", "error_message"])
+
+        AuditService.log(
+            action=AuditEvent.Action.EXTRACTION_FAILED,
+            actor=document.uploaded_by if hasattr(document, "uploaded_by") else None,
+            household=document.household if hasattr(document, "household") else None,
+            entity=document,
+            description=f"Document #{document.id} processing job #{job.id} failed: {exc}",
+            metadata={"error": str(exc), "attempt": job.attempts},
+        )
 
         # Retry transient failures
         if self.request.retries < self.max_retries:

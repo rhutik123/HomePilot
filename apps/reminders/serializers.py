@@ -25,13 +25,16 @@ class BillReminderSerializer(serializers.ModelSerializer):
             "bill_due_date",
             "remind_at",
             "reminder_type",
+            "status",
             "is_sent",
             "sent_at",
             "sent_to",
             "sent_to_name",
+            "retry_count",
+            "error_message",
             "created_at",
         )
-        read_only_fields = ("id", "is_sent", "sent_at", "created_at")
+        read_only_fields = ("id", "status", "is_sent", "sent_at", "retry_count", "error_message", "created_at")
 
 
 class NotificationLogSerializer(serializers.ModelSerializer):
@@ -53,7 +56,7 @@ class NotificationLogSerializer(serializers.ModelSerializer):
 
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):
-    """Serializer for managing user notification channel preferences."""
+    """Serializer for managing user notification channel and milestone preferences."""
     class Meta:
         model = NotificationPreference
         fields = (
@@ -63,6 +66,10 @@ class NotificationPreferenceSerializer(serializers.ModelSerializer):
             "in_app_enabled",
             "whatsapp_enabled",
             "whatsapp_phone_number",
+            "remind_7_days_before",
+            "remind_3_days_before",
+            "remind_1_day_before",
+            "remind_on_due_date",
             "created_at",
             "updated_at",
         )

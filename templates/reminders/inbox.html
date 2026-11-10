@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications Inbox - HomePilot{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <span>🔔</span> Notification Center
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Stay updated on upcoming payment milestones, overdue warnings, and automated reminders.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'dashboard_web:notification-preferences' %}" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
+                ⚙️ Channel Settings
+            </a>
+            <a href="{% url 'dashboard_web:notification-deliveries' %}" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition flex items-center gap-1.5">
+                📜 Delivery History
+            </a>
+            {% if unread_count > 0 %}
+            <form method="POST" action="{% url 'dashboard_web:notification-mark-all-read' %}">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition">
+                    ✓ Mark All as Read ({{ unread_count }})
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <a href="?filter=all" class="px-4 py-1.5 text-sm font-medium rounded-lg transition {% if filter_status == 'all' %}bg-indigo-50 text-indigo-700 font-semibold{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+            All Notifications
+        </a>
+        <a href="?filter=unread" class="px-4 py-1.5 text-sm font-medium rounded-lg transition {% if filter_status == 'unread' %}bg-indigo-50 text-indigo-700 font-semibold{% else %}text-slate-600 hover:bg-slate-100{% endif %}">
+            Unread Only
+            {% if unread_count > 0 %}
+            <span class="ml-1 px-1.5 py-0.5 text-xs bg-indigo-600 text-white rounded-full">{{ unread_count }}</span>
+            {% endif %}
+        </a>
+    </div>
+
+    <!-- Notification List -->
+    <div class="space-y-3">
+        {% for alert in notifications %}
+        <div class="p-5 rounded-2xl border transition flex items-start justify-between gap-4 {% if not alert.is_read %}bg-indigo-50/40 border-indigo-200 shadow-sm{% else %}bg-white border-slate-100 hover:border-slate-200{% endif %}">
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 {% if not alert.is_read %}bg-indigo-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-500{% endif %}">
+                    {% if "Overdue" in alert.title %}
+                    ⚠️
+                    {% elif "Due" in alert.title %}
+                    📅
+                    {% else %}
+                    🔔
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-bold text-slate-800 text-base">{{ alert.title }}</h3>
+                        {% if not alert.is_read %}
+                        <span class="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700 rounded-md">New</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-slate-600 mt-1 leading-relaxed">{{ alert.message }}</p>
+                    <div class="flex items-center gap-4 text-xs text-slate-400 mt-3 font-medium">
+                        <span>🕒 {{ alert.created_at|date:"M d, Y h:i A" }}</span>
+                        {% if alert.bill %}
+                        <span>•</span>
+                        <a href="{% url 'dashboard_web:bill-detail' alert.bill.id %}" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1">
+                            View Bill Details →
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if not alert.is_read %}
+            <form method="POST" action="{% url 'dashboard_web:notification-mark-read' alert.id %}" class="shrink-0">
+                {% csrf_token %}
+                <button type="submit" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-white text-slate-600 transition shadow-2xs">
+                    Mark Read
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="text-center py-16 bg-white rounded-2xl border border-slate-100">
+            <div class="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto text-3xl mb-3">
+                📭
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">No Notifications</h3>
+            <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
+                {% if filter_status == 'unread' %}
+                You have no unread notifications. All caught up!
+                {% else %}
+                Your inbox is currently clear. Milestone reminders will appear here automatically.
+                {% endif %}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

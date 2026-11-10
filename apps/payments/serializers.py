@@ -41,6 +41,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     paid_by = UserSerializer(read_only=True)
     bill_provider = serializers.CharField(source="bill.provider_name", read_only=True)
     bill_amount = serializers.DecimalField(source="bill.amount", max_digits=10, decimal_places=2, read_only=True)
+    net_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     receipt = PaymentReceiptSerializer(read_only=True)
     adjustments = PaymentAdjustmentSerializer(many=True, read_only=True)
 
@@ -54,6 +55,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             "household",
             "paid_by",
             "amount",
+            "net_amount",
+            "currency",
+            "status",
             "payment_date",
             "payment_method",
             "transaction_reference",
@@ -63,7 +67,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "household", "paid_by", "created_at", "updated_at")
+        read_only_fields = ("id", "household", "paid_by", "created_at", "updated_at", "net_amount")
 
 
 class PaymentCreateSerializer(serializers.ModelSerializer):
@@ -74,6 +78,7 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     receipt_file = serializers.FileField(required=False, write_only=True)
+    currency = serializers.CharField(required=False, default="")
 
     class Meta:
         model = Payment
@@ -81,6 +86,7 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             "id",
             "bill_id",
             "amount",
+            "currency",
             "payment_date",
             "payment_method",
             "transaction_reference",

@@ -96,15 +96,22 @@ class TestDashboard:
         assert response.status_code == status.HTTP_200_OK
         assert b"Pending Power" in response.content
 
-    def test_web_mark_bill_paid_action(self):
-        """Clicking mark-paid from web UI updates bill and redirects."""
+    def test_web_mark_bill_paid_action_rejects_get(self):
+        """GET request to mark-paid must be rejected with 405 Method Not Allowed."""
         self.client.force_login(self.user)
         response = self.client.get(f"/bills/{self.pending_bill.id}/mark-paid/")
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+    def test_web_mark_bill_paid_action(self):
+        """POSTing mark-paid from web UI records payment, updates bill, and redirects."""
+        self.client.force_login(self.user)
+        response = self.client.post(f"/bills/{self.pending_bill.id}/mark-paid/")
         assert response.status_code == status.HTTP_302_FOUND
 
         self.pending_bill.refresh_from_db()
         assert self.pending_bill.status == BillStatus.PAID
         assert self.pending_bill.paid_at is not None
+        assert self.pending_bill.payments.count() == 1
 
     def test_web_bill_upload_view_loads(self):
         """Upload page renders successfully for authenticated user."""

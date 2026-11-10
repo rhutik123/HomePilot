@@ -1,7 +1,7 @@
 import logging
 from celery import shared_task
 from apps.households.models import Household
-from apps.ai.services.anomaly_detector import SpendingAnomalyDetector
+from apps.ai.services.spending_insights_service import SpendingInsightsService
 
 logger = logging.getLogger(__name__)
 
@@ -10,14 +10,15 @@ logger = logging.getLogger(__name__)
 def generate_spending_insights_task():
     """
     Celery periodic background task (e.g. weekly or daily) that inspects
-    all households for spending spikes, anomalies, and upcoming forecasts.
+    all households for spending spikes, anomalies, provider rate increases,
+    and forward-looking expense forecasts.
     """
     households = Household.objects.all()
     total_insights = 0
 
     for hh in households:
         try:
-            insights = SpendingAnomalyDetector.analyze_household(hh)
+            insights = SpendingInsightsService.detect_and_save_insights(hh)
             total_insights += len(insights)
         except Exception as exc:
             logger.exception(f"Error generating spending insights for household #{hh.id}: {exc}")

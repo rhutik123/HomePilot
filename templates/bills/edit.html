@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Bill - {{ bill.provider_name }} - HomePilot{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">Edit Bill #{{ bill.id }}</span>
+            <h1 class="text-2xl font-bold text-slate-900 mt-2">Edit {{ bill.provider_name }}</h1>
+            <p class="text-sm text-slate-500">Update bill details, reassign family members, or reschedule due dates.</p>
+        </div>
+        <a href="{% url 'dashboard_web:bills-list' %}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+            &larr; Back to Bills
+        </a>
+    </div>
+
+    <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <form method="POST" class="space-y-5">
+            {% csrf_token %}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Provider Name -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Provider / Company Name *</label>
+                    <input type="text" name="provider_name" value="{{ bill.provider_name }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Category -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Category *</label>
+                    <select name="category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                        {% for val, label in categories %}
+                        <option value="{{ val }}" {% if bill.category == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Amount -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Amount Due *</label>
+                    <input type="number" step="0.01" name="amount" value="{{ bill.amount }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Currency -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Currency</label>
+                    <input type="text" name="currency" value="{{ bill.currency }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Payment Due Date -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Payment Due Date *</label>
+                    <input type="date" name="due_date" value="{{ bill.due_date|date:'Y-m-d' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Issue Date -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Issue Date (Optional)</label>
+                    <input type="date" name="issue_date" value="{{ bill.issue_date|date:'Y-m-d'|default:'' }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Reference / Account Number -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Consumer / Account #</label>
+                    <input type="text" name="reference_number" value="{{ bill.reference_number }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <!-- Assign To Member -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Payment To</label>
+                    <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                        <option value="">-- Unassigned --</option>
+                        {% for m in members %}
+                        <option value="{{ m.id }}" {% if bill.assigned_to_id == m.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Billing Period -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Billing Period</label>
+                <input type="text" name="billing_period" value="{{ bill.billing_period }}" placeholder="e.g. November 2026" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
+                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Optional notes...">{{ bill.notes }}</textarea>
+            </div>
+
+            {% if bill.documents.exists %}
+            <div class="border-t border-slate-100 pt-4">
+                <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-2">Attached Documents</span>
+                <div class="space-y-2">
+                    {% for doc in bill.documents.all %}
+                    <div class="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <div class="flex items-center space-x-2">
+                            <span>📄</span>
+                            <span class="font-medium text-slate-800">{{ doc.file_name }}</span>
+                            <span class="text-slate-400">({{ doc.mime_type }})</span>
+                        </div>
+                        <span class="text-emerald-700 font-semibold">{{ doc.extraction_status }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="pt-4 flex items-center justify-between">
+                <a href="{% url 'dashboard_web:bills-list' %}" class="text-sm font-semibold text-slate-500 hover:text-slate-700">Cancel</a>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-sm">
+                    💾 Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

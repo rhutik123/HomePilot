@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Preferences - HomePilot{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <span>⚙️</span> Notification Preferences
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Customize your delivery channels and configure payment milestone alerts.
+            </p>
+        </div>
+        <a href="{% url 'dashboard_web:notifications-inbox' %}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition">
+            ← Back to Inbox
+        </a>
+    </div>
+
+    <!-- Form -->
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Channel Configuration -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-5">
+            <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <span>📡</span> Communication Channels
+            </h2>
+
+            <!-- In-App Alerts -->
+            <div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-slate-50/60 border border-slate-200">
+                <div class="space-y-1">
+                    <label for="in_app_enabled" class="font-bold text-slate-800 text-sm cursor-pointer flex items-center gap-2">
+                        <span>🔔</span> In-App Notification Center
+                    </label>
+                    <p class="text-xs text-slate-500">
+                        Receive instant alerts inside your HomePilot web dashboard and top navigation bar.
+                    </p>
+                </div>
+                <input type="checkbox" id="in_app_enabled" name="in_app_enabled" {% if preferences.in_app_enabled %}checked{% endif %} class="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+            </div>
+
+            <!-- Email Alerts -->
+            <div class="flex items-start justify-between gap-4 p-4 rounded-xl bg-slate-50/60 border border-slate-200">
+                <div class="space-y-1">
+                    <label for="email_enabled" class="font-bold text-slate-800 text-sm cursor-pointer flex items-center gap-2">
+                        <span>✉️</span> Email Notifications
+                    </label>
+                    <p class="text-xs text-slate-500">
+                        Receive milestone reminder emails at <strong>{{ request.user.email }}</strong>.
+                    </p>
+                </div>
+                <input type="checkbox" id="email_enabled" name="email_enabled" {% if preferences.email_enabled %}checked{% endif %} class="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+            </div>
+
+            <!-- WhatsApp Alerts -->
+            <div class="p-4 rounded-xl bg-slate-50/60 border border-slate-200 space-y-3">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="space-y-1">
+                        <label for="whatsapp_enabled" class="font-bold text-slate-800 text-sm cursor-pointer flex items-center gap-2">
+                            <span>💬</span> WhatsApp Business Platform
+                        </label>
+                        <p class="text-xs text-slate-500">
+                            Receive automated alerts directly on WhatsApp via Meta Cloud API.
+                        </p>
+                    </div>
+                    <input type="checkbox" id="whatsapp_enabled" name="whatsapp_enabled" {% if preferences.whatsapp_enabled %}checked{% endif %} class="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+                </div>
+
+                <div class="pt-2 border-t border-slate-200">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                        WhatsApp Contact Phone Number
+                    </label>
+                    <input type="text" name="whatsapp_phone_number" value="{{ preferences.whatsapp_phone_number }}" placeholder="+919876543210 or +14155552671" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Must follow international E.164 format with leading '+' and country code.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Milestone Scheduling Preferences -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+            <h2 class="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3 flex items-center gap-2">
+                <span>🗓️</span> Payment Reminder Milestones
+            </h2>
+            <p class="text-xs text-slate-500">
+                Select which milestones should trigger reminder notifications before a bill's payment deadline.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <!-- 7 Days -->
+                <label class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition cursor-pointer">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-base">📅</span>
+                        <span class="text-sm font-semibold text-slate-700">7 Days Before Due Date</span>
+                    </div>
+                    <input type="checkbox" name="remind_7_days_before" {% if preferences.remind_7_days_before %}checked{% endif %} class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
+                </label>
+
+                <!-- 3 Days -->
+                <label class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition cursor-pointer">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-base">⏰</span>
+                        <span class="text-sm font-semibold text-slate-700">3 Days Before Due Date</span>
+                    </div>
+                    <input type="checkbox" name="remind_3_days_before" {% if preferences.remind_3_days_before %}checked{% endif %} class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
+                </label>
+
+                <!-- 1 Day -->
+                <label class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition cursor-pointer">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-base">⚡</span>
+                        <span class="text-sm font-semibold text-slate-700">1 Day Before Due Date</span>
+                    </div>
+                    <input type="checkbox" name="remind_1_day_before" {% if preferences.remind_1_day_before %}checked{% endif %} class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
+                </label>
+
+                <!-- Due Date -->
+                <label class="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition cursor-pointer">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-base">🎯</span>
+                        <span class="text-sm font-semibold text-slate-700">On Due Date Itself</span>
+                    </div>
+                    <input type="checkbox" name="remind_on_due_date" {% if preferences.remind_on_due_date %}checked{% endif %} class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
+                </label>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3">
+            <a href="{% url 'dashboard_web:notifications-inbox' %}" class="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800">
+                Cancel
+            </a>
+            <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition">
+                Save Notification Preferences
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

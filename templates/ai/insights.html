@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}AI Spending Insights - HomePilot{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">✨</span>
+                <h1 class="text-2xl font-bold text-slate-800">AI Spending Intelligence</h1>
+                <span class="text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-100">
+                    {{ household.name }}
+                </span>
+            </div>
+            <p class="text-sm text-slate-500 mt-1">
+                Deterministic financial metrics calculated by Django ORM & explained by HomePilot AI.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <form method="POST" action="{% url 'dashboard_web:generate-insights' %}">
+                {% csrf_token %}
+                <input type="hidden" name="household_id" value="{{ household.id }}">
+                <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition flex items-center gap-2">
+                    <span>⚡</span> Run Anomaly Check
+                </button>
+            </form>
+            <a href="{% url 'dashboard_web:dashboard' %}" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                ← Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Active Proactive Alerts (Anomalies, Spikes, Rate Hikes) -->
+    {% if active_insights %}
+    <div class="space-y-3">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Active Alerts & Detected Anomalies</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for item in active_insights %}
+            <div class="p-5 rounded-2xl border transition relative flex flex-col justify-between {% if item.severity == 'CRITICAL' %}bg-rose-50/70 border-rose-200 text-rose-900{% elif item.severity == 'WARNING' %}bg-amber-50/70 border-amber-200 text-amber-900{% else %}bg-blue-50/70 border-blue-200 text-blue-900{% endif %}">
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md {% if item.severity == 'CRITICAL' %}bg-rose-200 text-rose-800{% elif item.severity == 'WARNING' %}bg-amber-200 text-amber-800{% else %}bg-blue-200 text-blue-800{% endif %}">
+                            {{ item.get_severity_display }} &bull; {{ item.get_insight_type_display }}
+                        </span>
+                        <form method="POST" action="{% url 'dashboard_web:dismiss-insight' item.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" class="text-xs font-bold text-slate-400 hover:text-slate-600 p-1">
+                                ✕ Dismiss
+                            </button>
+                        </form>
+                    </div>
+                    <h3 class="font-bold text-base text-slate-800">{{ item.title }}</h3>
+                    <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">{{ item.description }}</p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Detected: {{ item.created_at|date:"M d, Y" }}</span>
+                    {% if item.amount_difference %}
+                    <span class="font-bold text-slate-700">Impact: ₹{{ item.amount_difference }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Executive AI Narrative Banner -->
+    <div class="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-lg border border-indigo-700/50">
+        <div class="flex items-center justify-between gap-4 border-b border-indigo-700/60 pb-4 mb-4">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🤖</span>
+                <div>
+                    <h2 class="text-lg font-black tracking-tight text-white">Executive AI Analysis</h2>
+                    <p class="text-xs text-indigo-200">Synthesized directly from verified database records. Zero hallucination guarantee.</p>
+                </div>
+            </div>
+            <span class="hidden sm:inline-block text-[11px] font-semibold bg-indigo-700/60 text-indigo-100 px-3 py-1 rounded-full border border-indigo-500/40">
+                Deterministic Financial Guardrail
+            </span>
+        </div>
+        <div class="prose prose-invert max-w-none text-sm text-indigo-50 leading-relaxed space-y-3 font-normal whitespace-pre-line">
+            {{ ai_narrative }}
+        </div>
+    </div>
+
+    <!-- 4 Key Analytics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Monthly Comparison -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+            <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Monthly Spending</span>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span class="text-2xl font-black text-slate-900">₹{{ summary.monthly_comparison.current_total_billed }}</span>
+                    <span class="text-xs font-bold {% if summary.monthly_comparison.direction == 'INCREASED' %}text-rose-600{% elif summary.monthly_comparison.direction == 'DECREASED' %}text-emerald-600{% else %}text-slate-500{% endif %}">
+                        {{ summary.monthly_comparison.percentage_change }}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                    {{ summary.monthly_comparison.current_month }}: ₹{{ summary.monthly_comparison.current_total_paid }} paid
+                </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+                Prior month: ₹{{ summary.monthly_comparison.previous_total_billed }}
+            </div>
+        </div>
+
+        <!-- Top Category -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+            <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Highest Cost Category</span>
+                <div class="mt-2">
+                    {% if summary.category_summary.top_category %}
+                    <span class="text-xl font-black text-slate-900 block truncate">{{ summary.category_summary.top_category.category_display }}</span>
+                    <span class="text-xs font-bold text-indigo-600 block mt-0.5">₹{{ summary.category_summary.top_category.total_amount }} ({{ summary.category_summary.top_category.percentage_of_total }})</span>
+                    {% else %}
+                    <span class="text-sm font-semibold text-slate-400">No records</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+                6-Month Total: ₹{{ summary.category_summary.grand_total }}
+            </div>
+        </div>
+
+        <!-- Upcoming Obligations -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+            <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Due Next 7 Days</span>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span class="text-2xl font-black text-slate-900">₹{{ summary.upcoming_obligations.due_next_week_total }}</span>
+                    <span class="text-xs font-semibold text-slate-500">({{ summary.upcoming_obligations.due_next_week_count }} bills)</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                    Total unpaid balance: <strong>₹{{ summary.upcoming_obligations.total_outstanding_amount }}</strong>
+                </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-rose-600 font-semibold">
+                Overdue: ₹{{ summary.upcoming_obligations.overdue_total }} ({{ summary.upcoming_obligations.overdue_count }})
+            </div>
+        </div>
+
+        <!-- 30-Day Forecast -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+            <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">30-Day Projected Spend</span>
+                <div class="mt-2">
+                    <span class="text-2xl font-black text-indigo-600">₹{{ summary.forecast.projected_monthly_spend }}</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">
+                    Committed subscriptions: ₹{{ summary.forecast.committed_recurring_component }}
+                </p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 truncate" title="{{ summary.forecast.disclosed_assumptions }}">
+                Variable baseline: ₹{{ summary.forecast.variable_moving_avg_component }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Breakdown & Provider Rate Increases -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Category Distribution -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center justify-between">
+                <span>📊 Category Expense Distribution (6 Months)</span>
+                <span class="text-xs text-slate-400 font-normal">₹{{ summary.category_summary.grand_total }} total</span>
+            </h3>
+            <div class="space-y-3">
+                {% for cat in summary.category_summary.categories %}
+                <div>
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
+                        <span>{{ cat.category_display }} ({{ cat.bills_count }} bills)</span>
+                        <span>₹{{ cat.total_amount }} &bull; {{ cat.percentage_of_total }}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ cat.percentage_of_total }}"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-sm text-slate-400 py-6 text-center">No category spending records available.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Provider Rate Hikes -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center justify-between">
+                <span>📈 Provider Rate Increases</span>
+                <span class="text-xs text-slate-400 font-normal">Latest vs previous bills</span>
+            </h3>
+            {% if summary.increasing_bills %}
+            <div class="divide-y divide-slate-100">
+                {% for hike in summary.increasing_bills %}
+                <div class="py-3 flex items-center justify-between">
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">{{ hike.provider_name }}</h4>
+                        <span class="text-xs text-slate-500">{{ hike.category_display }} &bull; Was ₹{{ hike.previous_amount }} on {{ hike.previous_due_date }}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-sm font-bold text-slate-900 block">₹{{ hike.latest_amount }}</span>
+                        <span class="text-xs font-bold text-rose-600">{{ hike.percentage_increase }} (+₹{{ hike.increase_amount }})</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="py-12 text-center text-slate-400">
+                <span class="text-2xl block mb-2">🎉</span>
+                <p class="text-sm">No provider charge increases detected across your billing history.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Disclosed Forecast Assumptions Box -->
+    <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-xs text-slate-600 leading-relaxed">
+        <h4 class="font-bold text-slate-800 uppercase tracking-wider text-[11px] mb-1">
+            🔍 Disclosed Forecasting Methodology & Transparency Notice
+        </h4>
+        <p>{{ summary.forecast.disclosed_assumptions }}</p>
+    </div>
+</div>
+{% endblock %}
