@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Financial Analytics & Reports - {{ household.name }}{% endblock %}
+{% block title %}Financial Analytics & Reports - {{ household.name }} | HomePilot{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- Header & Date Filter Toolbar -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-slate-200">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-[var(--border-color)]">
         <div>
             <div class="flex items-center gap-3">
-                <span class="text-3xl">📊</span>
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 shadow-sm shrink-0">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Household Reports & Analytics</h1>
-                    <p class="text-sm text-slate-500">
-                        Detailed expense breakdown, payment history, provider trends, and verified exports.
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Household Reports & Analytics</h1>
+                    <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
+                        Consolidated expense breakdown, settlement rates, MoM variance, and certified exports.
                     </p>
                 </div>
             </div>
@@ -23,31 +25,34 @@
             <input type="hidden" name="household" value="{{ household.id }}">
             
             <!-- Quick Presets -->
-            <div class="inline-flex rounded-xl shadow-xs bg-slate-100 p-1 border border-slate-200 text-xs font-semibold">
+            <div class="inline-flex rounded-xl bg-[var(--bg-card)] p-1 border border-[var(--border-color)] text-xs font-semibold shadow-xs">
                 <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=this_month"
-                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'this_month' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'this_month' %}bg-indigo-600 text-white shadow-xs{% else %}text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]{% endif %}">
                     This Month
                 </a>
                 <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=last_3_months"
-                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'last_3_months' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
-                    Last 3 Months
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'last_3_months' %}bg-indigo-600 text-white shadow-xs{% else %}text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]{% endif %}">
+                    3 Months
                 </a>
                 <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=last_6_months"
-                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'last_6_months' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
-                    Last 6 Months
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'last_6_months' %}bg-indigo-600 text-white shadow-xs{% else %}text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]{% endif %}">
+                    6 Months
                 </a>
                 <a href="{% url 'dashboard_web:reports' %}?household={{ household.id }}&preset=this_year"
-                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'this_year' %}bg-white text-indigo-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                   class="px-3 py-1.5 rounded-lg transition {% if preset == 'this_year' %}bg-indigo-600 text-white shadow-xs{% else %}text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]{% endif %}">
                     This Year
                 </a>
             </div>
 
             <!-- Custom Date Inputs -->
-            <div class="flex items-center gap-1.5 text-xs bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
-                <input type="date" name="date_from" value="{{ date_from }}" class="px-2 py-1 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                <span class="text-slate-400 font-medium">to</span>
-                <input type="date" name="date_to" value="{{ date_to }}" class="px-2 py-1 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1 rounded-lg transition">Apply</button>
+            <div class="flex items-center gap-1.5 text-xs bg-[var(--bg-card)] p-1 rounded-xl border border-[var(--border-color)] shadow-xs">
+                <input type="date" name="date_from" value="{{ date_from }}" class="px-2.5 py-1.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <span class="text-[var(--text-muted)] font-medium">to</span>
+                <input type="date" name="date_to" value="{{ date_to }}" class="px-2.5 py-1.5 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    <span>Apply</span>
+                </button>
             </div>
         </form>
     </div>
@@ -55,85 +60,92 @@
     <!-- Executive KPI Grid -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <!-- Total Billed -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Billed</span>
-            <span class="text-xl font-bold text-slate-900 mt-1 block">₹{{ overview.total_billed }}</span>
-            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ overview.bill_counts.total }} bills total</span>
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Total Billed</span>
+            <span class="text-xl font-bold text-[var(--text-primary)] mt-1 block">₹{{ overview.total_billed }}</span>
+            <span class="text-[11px] text-[var(--text-secondary)] mt-0.5 block">{{ overview.bill_counts.total }} bills total</span>
         </div>
         <!-- Total Paid -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Paid</span>
-            <span class="text-xl font-bold text-emerald-600 mt-1 block">₹{{ overview.total_paid }}</span>
-            <span class="text-[11px] text-emerald-700 font-medium mt-0.5 block">{{ overview.settlement_rate_pct }}% settlement</span>
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Total Settled</span>
+            <span class="text-xl font-bold text-emerald-500 mt-1 block">₹{{ overview.total_paid }}</span>
+            <span class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 block">{{ overview.settlement_rate_pct }}% rate</span>
         </div>
         <!-- Outstanding -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Outstanding Debt</span>
-            <span class="text-xl font-bold text-amber-600 mt-1 block">₹{{ overview.total_outstanding }}</span>
-            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ overview.bill_counts.pending }} pending</span>
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Outstanding</span>
+            <span class="text-xl font-bold text-amber-500 mt-1 block">₹{{ overview.total_outstanding }}</span>
+            <span class="text-[11px] text-[var(--text-secondary)] mt-0.5 block">{{ overview.bill_counts.pending }} pending</span>
         </div>
         <!-- Overdue -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Overdue Amount</span>
-            <span class="text-xl font-bold text-rose-600 mt-1 block">₹{{ overview.overdue_amount }}</span>
-            <span class="text-[11px] text-rose-700 font-medium mt-0.5 block">{{ overview.bill_counts.overdue }} overdue bills</span>
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Overdue Amount</span>
+            <span class="text-xl font-bold text-rose-500 mt-1 block">₹{{ overview.overdue_amount }}</span>
+            <span class="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-0.5 block">{{ overview.bill_counts.overdue }} overdue</span>
         </div>
         <!-- Recurring Commitments -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Recurring Total</span>
-            <span class="text-xl font-bold text-indigo-600 mt-1 block">₹{{ recurring.estimated_monthly_recurring_total }}</span>
-            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ recurring.active_schedules_count }} active schedules</span>
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Monthly Recurring</span>
+            <span class="text-xl font-bold text-indigo-500 mt-1 block">₹{{ recurring.estimated_monthly_recurring_total }}</span>
+            <span class="text-[11px] text-[var(--text-secondary)] mt-0.5 block">{{ recurring.active_schedules_count }} active</span>
         </div>
         <!-- Due Next 7 Days -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Due Next 7 Days</span>
-            <span class="text-xl font-bold text-indigo-900 mt-1 block">₹{{ obligations.due_next_week_total }}</span>
-            <span class="text-[11px] text-slate-500 mt-0.5 block">{{ obligations.due_next_week_count }} bills due soon</span>
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 shadow-sm">
+            <span class="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">Due 7 Days</span>
+            <span class="text-xl font-bold text-[var(--text-primary)] mt-1 block">₹{{ obligations.due_next_week_total }}</span>
+            <span class="text-[11px] text-[var(--text-secondary)] mt-0.5 block">{{ obligations.due_next_week_count }} bills</span>
         </div>
     </div>
 
     <!-- Export Action Center -->
-    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-sm">
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-950 border border-indigo-500/20 text-white rounded-2xl p-6 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-                <h2 class="text-lg font-bold tracking-tight flex items-center gap-2">
-                    <span>📑</span> Export Financial Statements & Reports
+                <h2 class="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5 text-indigo-400"></i>
+                    <span>Export Financial Statements & Ledgers</span>
                 </h2>
                 <p class="text-xs text-slate-300 mt-1">
-                    Download official statements and spreadsheets securely scoped to household <strong>{{ household.name }}</strong>.
+                    Download official statements and spreadsheets securely scoped to household <strong class="text-indigo-300">{{ household.name }}</strong>.
                 </p>
             </div>
             <!-- Export Buttons -->
             <div class="flex flex-wrap items-center gap-2">
                 <!-- PDF Statement -->
                 <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=pdf&type=statement&date_from={{ date_from }}&date_to={{ date_to }}"
-                   class="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shadow-sm">
-                    <span>📄</span> Download PDF Statement
+                   class="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>Download PDF Statement</span>
                 </a>
                 <!-- Payments PDF Statement -->
                 <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=pdf&type=payments&date_from={{ date_from }}&date_to={{ date_to }}"
-                   class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition shadow-sm">
-                    <span>💳</span> Payments Statement (PDF)
+                   class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
+                    <i data-lucide="receipt" class="w-4 h-4"></i>
+                    <span>Payments PDF</span>
                 </a>
                 <!-- CSV Bills -->
                 <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=bills&date_from={{ date_from }}&date_to={{ date_to }}"
-                   class="inline-flex items-center gap-1.5 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
-                    <span>📊</span> Bills (CSV)
+                   class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3 py-2 rounded-xl border border-white/10 transition shadow-sm">
+                    <i data-lucide="table" class="w-4 h-4"></i>
+                    <span>Bills (CSV)</span>
                 </a>
                 <!-- CSV Payments -->
                 <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=payments&date_from={{ date_from }}&date_to={{ date_to }}"
-                   class="inline-flex items-center gap-1.5 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
-                    <span>💳</span> Payments (CSV)
+                   class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3 py-2 rounded-xl border border-white/10 transition shadow-sm">
+                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                    <span>Payments (CSV)</span>
                 </a>
                 <!-- CSV Overdue -->
                 <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=overdue"
-                   class="inline-flex items-center gap-1.5 bg-white text-rose-700 hover:bg-rose-50 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
-                    <span>⚠️</span> Overdue (CSV)
+                   class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-rose-300 font-semibold text-xs px-3 py-2 rounded-xl border border-rose-500/20 transition shadow-sm">
+                    <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                    <span>Overdue (CSV)</span>
                 </a>
                 <!-- CSV Recurring -->
                 <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=recurring"
-                   class="inline-flex items-center gap-1.5 bg-white text-slate-800 hover:bg-slate-100 font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm">
-                    <span>🔁</span> Recurring (CSV)
+                   class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-3 py-2 rounded-xl border border-white/10 transition shadow-sm">
+                    <i data-lucide="repeat" class="w-4 h-4"></i>
+                    <span>Recurring (CSV)</span>
                 </a>
             </div>
         </div>
@@ -143,64 +155,66 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         <!-- Category Spending Distribution -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>🏷️</span> Category Spending Breakdown
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+                <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-500"></i>
+                    <span>Category Spending Breakdown</span>
                 </h3>
-                <span class="text-xs text-slate-400">{{ categories|length }} categories</span>
+                <span class="text-xs text-[var(--text-muted)]">{{ categories|length }} categories</span>
             </div>
 
-            <div class="space-y-3">
+            <div class="space-y-3.5">
                 {% for cat in categories %}
                 <div class="space-y-1">
                     <div class="flex items-center justify-between text-xs">
-                        <span class="font-semibold text-slate-800">{{ cat.category_display }} ({{ cat.bill_count }} bills)</span>
-                        <span class="font-bold text-slate-900">₹{{ cat.total_amount }} <span class="text-slate-400 font-normal">({{ cat.percentage_of_total }}%)</span></span>
+                        <span class="font-semibold text-[var(--text-primary)]">{{ cat.category_display }} <span class="text-[var(--text-muted)] font-normal">({{ cat.bill_count }} bills)</span></span>
+                        <span class="font-bold text-[var(--text-primary)]">₹{{ cat.total_amount }} <span class="text-[var(--text-muted)] font-normal">({{ cat.percentage_of_total }}%)</span></span>
                     </div>
                     <!-- Visual Progress Bar -->
-                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ cat.percentage_of_total }}%;"></div>
+                    <div class="w-full bg-[var(--bg-secondary)] rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-600 h-2 rounded-full transition-all duration-500" style="width: {{ cat.percentage_of_total }}%;"></div>
                     </div>
                 </div>
                 {% empty %}
-                <p class="text-xs text-slate-400 italic py-4 text-center">No category spending records found for this period.</p>
+                <p class="text-xs text-[var(--text-muted)] italic py-6 text-center">No category spending records found for this period.</p>
                 {% endfor %}
             </div>
         </div>
 
         <!-- Provider Spending Analysis -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>🏢</span> Service Provider Distribution
+        <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm p-6 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+                <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <i data-lucide="building-2" class="w-4 h-4 text-indigo-500"></i>
+                    <span>Service Provider Distribution</span>
                 </h3>
-                <span class="text-xs text-slate-400">{{ providers|length }} providers</span>
+                <span class="text-xs text-[var(--text-muted)]">{{ providers|length }} providers</span>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs">
                     <thead>
-                        <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
-                            <th class="pb-2">Provider</th>
-                            <th class="pb-2">Bills</th>
-                            <th class="pb-2">Total Billed</th>
-                            <th class="pb-2">Outstanding</th>
+                        <tr class="text-[var(--text-muted)] font-bold uppercase tracking-wider border-b border-[var(--border-color)]">
+                            <th class="pb-2.5">Provider</th>
+                            <th class="pb-2.5">Bills</th>
+                            <th class="pb-2.5">Total Billed</th>
+                            <th class="pb-2.5">Outstanding</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-[var(--border-color)]">
                         {% for prov in providers %}
-                        <tr>
-                            <td class="py-2.5 font-semibold text-slate-800">{{ prov.provider_name }}</td>
-                            <td class="py-2.5 text-slate-600">{{ prov.bill_count }}</td>
-                            <td class="py-2.5 font-bold text-slate-900">₹{{ prov.total_amount }}</td>
-                            <td class="py-2.5 font-medium {% if prov.outstanding_balance != '0.00' %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                        <tr class="hover:bg-[var(--bg-secondary)]/50 transition">
+                            <td class="py-2.5 font-semibold text-[var(--text-primary)]">{{ prov.provider_name }}</td>
+                            <td class="py-2.5 text-[var(--text-secondary)]">{{ prov.bill_count }}</td>
+                            <td class="py-2.5 font-bold text-[var(--text-primary)]">₹{{ prov.total_amount }}</td>
+                            <td class="py-2.5 font-medium {% if prov.outstanding_balance != '0.00' %}text-amber-500{% else %}text-emerald-500{% endif %}">
                                 ₹{{ prov.outstanding_balance }}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="py-4 text-center text-slate-400 italic">No provider records found.</td>
+                            <td colspan="4" class="py-6 text-center text-[var(--text-muted)] italic">No provider records found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -210,18 +224,19 @@
     </div>
 
     <!-- Month-over-Month Spending Trends -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <span>📈</span> Month-over-Month Spending History (Last 6 Months)
+    <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+            <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <i data-lucide="trending-up" class="w-4 h-4 text-indigo-500"></i>
+                <span>Month-over-Month Spending History (Last 6 Months)</span>
             </h3>
-            <span class="text-xs text-slate-400">Chronological summary</span>
+            <span class="text-xs text-[var(--text-muted)]">Chronological ledger</span>
         </div>
 
         <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
                 <thead>
-                    <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
+                    <tr class="text-[var(--text-muted)] font-bold uppercase tracking-wider border-b border-[var(--border-color)]">
                         <th class="pb-2.5">Month</th>
                         <th class="pb-2.5">Bills</th>
                         <th class="pb-2.5">Total Billed</th>
@@ -229,36 +244,38 @@
                         <th class="pb-2.5">MoM Change</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-[var(--border-color)]">
                     {% for t in trends %}
-                    <tr>
-                        <td class="py-3 font-semibold text-slate-900">{{ t.label }}</td>
-                        <td class="py-3 text-slate-600">{{ t.bill_count }}</td>
-                        <td class="py-3 font-bold text-slate-900">₹{{ t.total_billed }}</td>
-                        <td class="py-3 text-emerald-600 font-medium">₹{{ t.total_paid }}</td>
+                    <tr class="hover:bg-[var(--bg-secondary)]/50 transition">
+                        <td class="py-3 font-semibold text-[var(--text-primary)]">{{ t.label }}</td>
+                        <td class="py-3 text-[var(--text-secondary)]">{{ t.bill_count }}</td>
+                        <td class="py-3 font-bold text-[var(--text-primary)]">₹{{ t.total_billed }}</td>
+                        <td class="py-3 text-emerald-500 font-medium">₹{{ t.total_paid }}</td>
                         <td class="py-3">
                             {% if t.mom_change_pct is not None %}
                                 {% if t.mom_change_pct > 0 %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
-                                    +{{ t.mom_change_pct }}% ▲
+                                <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                    <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                                    +{{ t.mom_change_pct }}%
                                 </span>
                                 {% elif t.mom_change_pct < 0 %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
-                                    {{ t.mom_change_pct }}% ▼
+                                <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    <i data-lucide="arrow-down-right" class="w-3 h-3"></i>
+                                    {{ t.mom_change_pct }}%
                                 </span>
                                 {% else %}
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-color)]">
                                     0.0% —
                                 </span>
                                 {% endif %}
                             {% else %}
-                            <span class="text-slate-400 italic">Baseline</span>
+                            <span class="text-[var(--text-muted)] italic">Baseline</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="py-4 text-center text-slate-400 italic">No historical trend records found.</td>
+                        <td colspan="5" class="py-6 text-center text-[var(--text-muted)] italic">No historical trend records found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -267,54 +284,56 @@
     </div>
 
     <!-- Recent Payments Ledger Table -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+    <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[var(--border-color)] gap-2">
             <div>
-                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <span>💳</span> Recent Payment Settlements & Receipts
+                <h3 class="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <i data-lucide="receipt" class="w-4 h-4 text-emerald-500"></i>
+                    <span>Recent Payment Settlements & Receipts</span>
                 </h3>
-                <p class="text-xs text-slate-500 mt-0.5">Total settled: <strong>₹{{ payments_data.total_amount_settled }}</strong> across {{ payments_data.total_payments_count }} transactions.</p>
+                <p class="text-xs text-[var(--text-secondary)] mt-0.5">Total settled: <strong class="text-[var(--text-primary)]">₹{{ payments_data.total_amount_settled }}</strong> across {{ payments_data.total_payments_count }} transactions.</p>
             </div>
-            <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=payments" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition">
-                Export Payments CSV →
+            <a href="{% url 'dashboard_web:report-export' %}?household={{ household.id }}&format=csv&type=payments" class="text-xs font-semibold text-indigo-500 hover:text-indigo-400 flex items-center gap-1 transition">
+                <span>Export Payments CSV</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             </a>
         </div>
 
         <div class="overflow-x-auto">
             <table class="w-full text-left text-xs">
                 <thead>
-                    <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
-                        <th class="pb-2">Date</th>
-                        <th class="pb-2">Bill / Provider</th>
-                        <th class="pb-2">Amount</th>
-                        <th class="pb-2">Method</th>
-                        <th class="pb-2">Transaction Ref</th>
-                        <th class="pb-2">Paid By</th>
-                        <th class="pb-2">Receipt</th>
+                    <tr class="text-[var(--text-muted)] font-bold uppercase tracking-wider border-b border-[var(--border-color)]">
+                        <th class="pb-2.5">Date</th>
+                        <th class="pb-2.5">Bill / Provider</th>
+                        <th class="pb-2.5">Amount</th>
+                        <th class="pb-2.5">Method</th>
+                        <th class="pb-2.5">Transaction Ref</th>
+                        <th class="pb-2.5">Paid By</th>
+                        <th class="pb-2.5">Receipt</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-[var(--border-color)]">
                     {% for p in payments_data.recent_payments %}
-                    <tr>
-                        <td class="py-2.5 text-slate-600">{{ p.payment_date }}</td>
-                        <td class="py-2.5 font-semibold text-slate-800">{{ p.provider_name }}</td>
-                        <td class="py-2.5 font-bold text-emerald-600">₹{{ p.amount }}</td>
-                        <td class="py-2.5 text-slate-600 uppercase">{{ p.payment_method }}</td>
-                        <td class="py-2.5 font-mono text-[11px] text-slate-500">{{ p.transaction_reference }}</td>
-                        <td class="py-2.5 text-slate-700">{{ p.paid_by }}</td>
+                    <tr class="hover:bg-[var(--bg-secondary)]/50 transition">
+                        <td class="py-2.5 text-[var(--text-secondary)]">{{ p.payment_date }}</td>
+                        <td class="py-2.5 font-semibold text-[var(--text-primary)]">{{ p.provider_name }}</td>
+                        <td class="py-2.5 font-bold text-emerald-500">₹{{ p.amount }}</td>
+                        <td class="py-2.5 text-[var(--text-secondary)] uppercase">{{ p.payment_method }}</td>
+                        <td class="py-2.5 font-mono text-[11px] text-[var(--text-muted)]">{{ p.transaction_reference }}</td>
+                        <td class="py-2.5 text-[var(--text-primary)]">{{ p.paid_by }}</td>
                         <td class="py-2.5">
                             {% if p.has_receipt %}
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                ✓ Verified
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                <i data-lucide="check" class="w-2.5 h-2.5"></i> Verified
                             </span>
                             {% else %}
-                            <span class="text-slate-400 italic">None</span>
+                            <span class="text-[var(--text-muted)] italic">None</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="py-4 text-center text-slate-400 italic">No payments recorded for this period.</td>
+                        <td colspan="7" class="py-6 text-center text-[var(--text-muted)] italic">No payments recorded for this period.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

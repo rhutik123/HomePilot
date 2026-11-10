@@ -1,33 +1,41 @@
 {% extends "base.html" %}
 
-{% block title %}AI Spending Insights - HomePilot{% endblock %}
+{% block title %}Spending Intelligence & Forecasts - {{ household.name }} | HomePilot{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--bg-card)] p-6 rounded-2xl shadow-sm border border-[var(--border-color)]">
         <div>
-            <div class="flex items-center gap-2">
-                <span class="text-2xl">✨</span>
-                <h1 class="text-2xl font-bold text-slate-800">AI Spending Intelligence</h1>
-                <span class="text-xs font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-100">
-                    {{ household.name }}
-                </span>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 shadow-sm shrink-0">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">AI Spending Intelligence</h1>
+                        <span class="text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
+                            {{ household.name }}
+                        </span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
+                        Deterministic financial analytics computed by Django ORM & synthesized by HomePilot AI.
+                    </p>
+                </div>
             </div>
-            <p class="text-sm text-slate-500 mt-1">
-                Deterministic financial metrics calculated by Django ORM & explained by HomePilot AI.
-            </p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
             <form method="POST" action="{% url 'dashboard_web:generate-insights' %}">
                 {% csrf_token %}
                 <input type="hidden" name="household_id" value="{{ household.id }}">
-                <button type="submit" class="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition flex items-center gap-2">
-                    <span>⚡</span> Run Anomaly Check
+                <button type="submit" class="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-sm transition flex items-center gap-2">
+                    <i data-lucide="zap" class="w-4 h-4"></i>
+                    <span>Run Anomaly Check</span>
                 </button>
             </form>
-            <a href="{% url 'dashboard_web:dashboard' %}" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
-                ← Dashboard
+            <a href="{% url 'dashboard_web:dashboard' %}" class="px-4 py-2 text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] rounded-xl border border-[var(--border-color)] transition flex items-center gap-1.5">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                <span>Dashboard</span>
             </a>
         </div>
     </div>
@@ -35,29 +43,39 @@
     <!-- Active Proactive Alerts (Anomalies, Spikes, Rate Hikes) -->
     {% if active_insights %}
     <div class="space-y-3">
-        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Active Alerts & Detected Anomalies</h2>
+        <div class="flex items-center justify-between px-1">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                <i data-lucide="bell" class="w-3.5 h-3.5 text-amber-500"></i>
+                <span>Active Alerts & Detected Anomalies</span>
+            </h2>
+            <span class="text-xs font-semibold text-[var(--text-muted)]">{{ active_insights|length }} active</span>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {% for item in active_insights %}
-            <div class="p-5 rounded-2xl border transition relative flex flex-col justify-between {% if item.severity == 'CRITICAL' %}bg-rose-50/70 border-rose-200 text-rose-900{% elif item.severity == 'WARNING' %}bg-amber-50/70 border-amber-200 text-amber-900{% else %}bg-blue-50/70 border-blue-200 text-blue-900{% endif %}">
+            <div class="p-5 rounded-2xl border transition relative flex flex-col justify-between {% if item.severity == 'CRITICAL' %}bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400{% elif item.severity == 'WARNING' %}bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400{% else %}bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400{% endif %}">
                 <div>
                     <div class="flex items-center justify-between gap-2 mb-2">
-                        <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md {% if item.severity == 'CRITICAL' %}bg-rose-200 text-rose-800{% elif item.severity == 'WARNING' %}bg-amber-200 text-amber-800{% else %}bg-blue-200 text-blue-800{% endif %}">
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md {% if item.severity == 'CRITICAL' %}bg-rose-500/20 text-rose-700 dark:text-rose-300{% elif item.severity == 'WARNING' %}bg-amber-500/20 text-amber-700 dark:text-amber-300{% else %}bg-blue-500/20 text-blue-700 dark:text-blue-300{% endif %}">
                             {{ item.get_severity_display }} &bull; {{ item.get_insight_type_display }}
                         </span>
                         <form method="POST" action="{% url 'dashboard_web:dismiss-insight' item.id %}" class="inline">
                             {% csrf_token %}
-                            <button type="submit" class="text-xs font-bold text-slate-400 hover:text-slate-600 p-1">
-                                ✕ Dismiss
+                            <button type="submit" class="text-xs font-bold opacity-60 hover:opacity-100 p-1 flex items-center gap-1 transition" title="Dismiss Alert">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                <span>Dismiss</span>
                             </button>
                         </form>
                     </div>
-                    <h3 class="font-bold text-base text-slate-800">{{ item.title }}</h3>
-                    <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">{{ item.description }}</p>
+                    <h3 class="font-bold text-sm sm:text-base text-[var(--text-primary)]">{{ item.title }}</h3>
+                    <p class="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">{{ item.description }}</p>
                 </div>
-                <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>Detected: {{ item.created_at|date:"M d, Y" }}</span>
+                <div class="mt-4 pt-3 border-t border-[var(--border-color)]/50 flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+                    <span class="flex items-center gap-1">
+                        <i data-lucide="clock" class="w-3 h-3"></i>
+                        <span>Detected {{ item.created_at|date:"M d, Y" }}</span>
+                    </span>
                     {% if item.amount_difference %}
-                    <span class="font-bold text-slate-700">Impact: ₹{{ item.amount_difference }}</span>
+                    <span class="font-bold text-[var(--text-primary)]">Impact: ₹{{ item.amount_difference }}</span>
                     {% endif %}
                 </div>
             </div>
@@ -67,20 +85,24 @@
     {% endif %}
 
     <!-- Executive AI Narrative Banner -->
-    <div class="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-lg border border-indigo-700/50">
-        <div class="flex items-center justify-between gap-4 border-b border-indigo-700/60 pb-4 mb-4">
+    <div class="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 rounded-3xl shadow-lg border border-indigo-500/20 relative overflow-hidden">
+        <div class="absolute -right-12 -top-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="flex items-center justify-between gap-4 border-b border-indigo-800/40 pb-4 mb-4 relative z-10">
             <div class="flex items-center gap-3">
-                <span class="text-3xl">🤖</span>
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 shrink-0">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </div>
                 <div>
-                    <h2 class="text-lg font-black tracking-tight text-white">Executive AI Analysis</h2>
-                    <p class="text-xs text-indigo-200">Synthesized directly from verified database records. Zero hallucination guarantee.</p>
+                    <h2 class="text-lg font-black tracking-tight text-white">Executive Financial Synthesis</h2>
+                    <p class="text-xs text-indigo-300">Synthesized directly from live database ledger. Zero hallucinations.</p>
                 </div>
             </div>
-            <span class="hidden sm:inline-block text-[11px] font-semibold bg-indigo-700/60 text-indigo-100 px-3 py-1 rounded-full border border-indigo-500/40">
-                Deterministic Financial Guardrail
+            <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold bg-indigo-500/20 text-indigo-200 px-3 py-1 rounded-full border border-indigo-400/30">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span>Deterministic Guardrails</span>
             </span>
         </div>
-        <div class="prose prose-invert max-w-none text-sm text-indigo-50 leading-relaxed space-y-3 font-normal whitespace-pre-line">
+        <div class="prose prose-invert max-w-none text-sm text-slate-200 leading-relaxed space-y-3 font-normal whitespace-pre-line relative z-10">
             {{ ai_narrative }}
         </div>
     </div>
@@ -88,71 +110,84 @@
     <!-- 4 Key Analytics Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Monthly Comparison -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+        <div class="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
             <div>
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Monthly Spending</span>
-                <div class="mt-2 flex items-baseline gap-2">
-                    <span class="text-2xl font-black text-slate-900">₹{{ summary.monthly_comparison.current_total_billed }}</span>
-                    <span class="text-xs font-bold {% if summary.monthly_comparison.direction == 'INCREASED' %}text-rose-600{% elif summary.monthly_comparison.direction == 'DECREASED' %}text-emerald-600{% else %}text-slate-500{% endif %}">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <span>Monthly Billed</span>
+                </span>
+                <div class="mt-2.5 flex items-baseline gap-2">
+                    <span class="text-2xl font-black text-[var(--text-primary)]">₹{{ summary.monthly_comparison.current_total_billed }}</span>
+                    <span class="text-xs font-bold {% if summary.monthly_comparison.direction == 'INCREASED' %}text-rose-500{% elif summary.monthly_comparison.direction == 'DECREASED' %}text-emerald-500{% else %}text-[var(--text-muted)]{% endif %}">
                         {{ summary.monthly_comparison.percentage_change }}
                     </span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">
-                    {{ summary.monthly_comparison.current_month }}: ₹{{ summary.monthly_comparison.current_total_paid }} paid
+                <p class="text-xs text-[var(--text-secondary)] mt-1">
+                    {{ summary.monthly_comparison.current_month }}: ₹{{ summary.monthly_comparison.current_total_paid }} settled
                 </p>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
+            <div class="mt-4 pt-3 border-t border-[var(--border-color)] text-[11px] text-[var(--text-muted)]">
                 Prior month: ₹{{ summary.monthly_comparison.previous_total_billed }}
             </div>
         </div>
 
         <!-- Top Category -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+        <div class="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
             <div>
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Highest Cost Category</span>
-                <div class="mt-2">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                    <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <span>Top Expense Category</span>
+                </span>
+                <div class="mt-2.5">
                     {% if summary.category_summary.top_category %}
-                    <span class="text-xl font-black text-slate-900 block truncate">{{ summary.category_summary.top_category.category_display }}</span>
-                    <span class="text-xs font-bold text-indigo-600 block mt-0.5">₹{{ summary.category_summary.top_category.total_amount }} ({{ summary.category_summary.top_category.percentage_of_total }})</span>
+                    <span class="text-xl font-black text-[var(--text-primary)] block truncate">{{ summary.category_summary.top_category.category_display }}</span>
+                    <span class="text-xs font-bold text-indigo-500 block mt-0.5">₹{{ summary.category_summary.top_category.total_amount }} ({{ summary.category_summary.top_category.percentage_of_total }})</span>
                     {% else %}
-                    <span class="text-sm font-semibold text-slate-400">No records</span>
+                    <span class="text-sm font-semibold text-[var(--text-muted)]">No records</span>
                     {% endif %}
                 </div>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
-                6-Month Total: ₹{{ summary.category_summary.grand_total }}
+            <div class="mt-4 pt-3 border-t border-[var(--border-color)] text-[11px] text-[var(--text-muted)]">
+                6-Month Ledger: ₹{{ summary.category_summary.grand_total }}
             </div>
         </div>
 
         <!-- Upcoming Obligations -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+        <div class="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
             <div>
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Due Next 7 Days</span>
-                <div class="mt-2 flex items-baseline gap-2">
-                    <span class="text-2xl font-black text-slate-900">₹{{ summary.upcoming_obligations.due_next_week_total }}</span>
-                    <span class="text-xs font-semibold text-slate-500">({{ summary.upcoming_obligations.due_next_week_count }} bills)</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-500"></i>
+                    <span>Due Next 7 Days</span>
+                </span>
+                <div class="mt-2.5 flex items-baseline gap-2">
+                    <span class="text-2xl font-black text-[var(--text-primary)]">₹{{ summary.upcoming_obligations.due_next_week_total }}</span>
+                    <span class="text-xs font-semibold text-[var(--text-muted)]">({{ summary.upcoming_obligations.due_next_week_count }} bills)</span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">
-                    Total unpaid balance: <strong>₹{{ summary.upcoming_obligations.total_outstanding_amount }}</strong>
+                <p class="text-xs text-[var(--text-secondary)] mt-1">
+                    Total unpaid balance: <strong class="text-[var(--text-primary)]">₹{{ summary.upcoming_obligations.total_outstanding_amount }}</strong>
                 </p>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-rose-600 font-semibold">
-                Overdue: ₹{{ summary.upcoming_obligations.overdue_total }} ({{ summary.upcoming_obligations.overdue_count }})
+            <div class="mt-4 pt-3 border-t border-[var(--border-color)] text-[11px] text-rose-500 font-semibold flex items-center gap-1">
+                <i data-lucide="alert-circle" class="w-3 h-3"></i>
+                <span>Overdue: ₹{{ summary.upcoming_obligations.overdue_total }} ({{ summary.upcoming_obligations.overdue_count }})</span>
             </div>
         </div>
 
         <!-- 30-Day Forecast -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
+        <div class="bg-[var(--bg-card)] p-5 rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col justify-between">
             <div>
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">30-Day Projected Spend</span>
-                <div class="mt-2">
-                    <span class="text-2xl font-black text-indigo-600">₹{{ summary.forecast.projected_monthly_spend }}</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                    <i data-lucide="trending-up" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <span>30-Day Projected Spend</span>
+                </span>
+                <div class="mt-2.5">
+                    <span class="text-2xl font-black text-indigo-500">₹{{ summary.forecast.projected_monthly_spend }}</span>
                 </div>
-                <p class="text-xs text-slate-500 mt-1">
-                    Committed subscriptions: ₹{{ summary.forecast.committed_recurring_component }}
+                <p class="text-xs text-[var(--text-secondary)] mt-1">
+                    Subscriptions: ₹{{ summary.forecast.committed_recurring_component }}
                 </p>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400 truncate" title="{{ summary.forecast.disclosed_assumptions }}">
+            <div class="mt-4 pt-3 border-t border-[var(--border-color)] text-[11px] text-[var(--text-muted)] truncate" title="{{ summary.forecast.disclosed_assumptions }}">
                 Variable baseline: ₹{{ summary.forecast.variable_moving_avg_component }}
             </div>
         </div>
@@ -161,64 +196,80 @@
     <!-- Category Breakdown & Provider Rate Increases -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Category Distribution -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-            <h3 class="font-bold text-slate-800 text-base flex items-center justify-between">
-                <span>📊 Category Expense Distribution (6 Months)</span>
-                <span class="text-xs text-slate-400 font-normal">₹{{ summary.category_summary.grand_total }} total</span>
-            </h3>
-            <div class="space-y-3">
+        <div class="bg-[var(--bg-card)] p-6 rounded-2xl shadow-sm border border-[var(--border-color)] space-y-4">
+            <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
+                <h3 class="font-bold text-[var(--text-primary)] text-sm sm:text-base flex items-center gap-2">
+                    <i data-lucide="bar-chart-2" class="w-4 h-4 text-indigo-500"></i>
+                    <span>Expense Distribution (6 Months)</span>
+                </h3>
+                <span class="text-xs text-[var(--text-muted)]">₹{{ summary.category_summary.grand_total }} total</span>
+            </div>
+            <div class="space-y-3.5">
                 {% for cat in summary.category_summary.categories %}
                 <div>
-                    <div class="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
-                        <span>{{ cat.category_display }} ({{ cat.bills_count }} bills)</span>
-                        <span>₹{{ cat.total_amount }} &bull; {{ cat.percentage_of_total }}</span>
+                    <div class="flex items-center justify-between text-xs font-bold text-[var(--text-primary)] mb-1.5">
+                        <span>{{ cat.category_display }} <span class="text-[var(--text-muted)] font-normal">({{ cat.bills_count }} bills)</span></span>
+                        <span>₹{{ cat.total_amount }} &bull; <span class="text-indigo-500">{{ cat.percentage_of_total }}</span></span>
                     </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2">
-                        <div class="bg-indigo-600 h-2 rounded-full" style="width: {{ cat.percentage_of_total }}"></div>
+                    <div class="w-full bg-[var(--bg-secondary)] rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-600 h-2 rounded-full transition-all duration-500" style="width: {{ cat.percentage_of_total }}"></div>
                     </div>
                 </div>
                 {% empty %}
-                <p class="text-sm text-slate-400 py-6 text-center">No category spending records available.</p>
+                <div class="text-sm text-[var(--text-muted)] py-8 text-center">
+                    <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                    No category spending records available
+                </div>
                 {% endfor %}
             </div>
         </div>
 
         <!-- Provider Rate Hikes -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-            <h3 class="font-bold text-slate-800 text-base flex items-center justify-between">
-                <span>📈 Provider Rate Increases</span>
-                <span class="text-xs text-slate-400 font-normal">Latest vs previous bills</span>
-            </h3>
+        <div class="bg-[var(--bg-card)] p-6 rounded-2xl shadow-sm border border-[var(--border-color)] space-y-4">
+            <div class="flex items-center justify-between border-b border-[var(--border-color)] pb-3">
+                <h3 class="font-bold text-[var(--text-primary)] text-sm sm:text-base flex items-center gap-2">
+                    <i data-lucide="trending-up" class="w-4 h-4 text-rose-500"></i>
+                    <span>Provider Rate Increases</span>
+                </h3>
+                <span class="text-xs text-[var(--text-muted)]">Latest vs Previous</span>
+            </div>
             {% if summary.increasing_bills %}
-            <div class="divide-y divide-slate-100">
+            <div class="divide-y divide-[var(--border-color)]">
                 {% for hike in summary.increasing_bills %}
-                <div class="py-3 flex items-center justify-between">
+                <div class="py-3.5 flex items-center justify-between">
                     <div>
-                        <h4 class="font-bold text-slate-800 text-sm">{{ hike.provider_name }}</h4>
-                        <span class="text-xs text-slate-500">{{ hike.category_display }} &bull; Was ₹{{ hike.previous_amount }} on {{ hike.previous_due_date }}</span>
+                        <h4 class="font-bold text-[var(--text-primary)] text-sm">{{ hike.provider_name }}</h4>
+                        <span class="text-xs text-[var(--text-secondary)]">{{ hike.category_display }} &bull; Was ₹{{ hike.previous_amount }} on {{ hike.previous_due_date }}</span>
                     </div>
                     <div class="text-right">
-                        <span class="text-sm font-bold text-slate-900 block">₹{{ hike.latest_amount }}</span>
-                        <span class="text-xs font-bold text-rose-600">{{ hike.percentage_increase }} (+₹{{ hike.increase_amount }})</span>
+                        <span class="text-sm font-bold text-[var(--text-primary)] block">₹{{ hike.latest_amount }}</span>
+                        <span class="text-xs font-bold text-rose-500 flex items-center justify-end gap-0.5">
+                            <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                            {{ hike.percentage_increase }} (+₹{{ hike.increase_amount }})
+                        </span>
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="py-12 text-center text-slate-400">
-                <span class="text-2xl block mb-2">🎉</span>
-                <p class="text-sm">No provider charge increases detected across your billing history.</p>
+            <div class="py-12 text-center text-[var(--text-muted)]">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto mb-2 border border-emerald-500/20">
+                    <i data-lucide="check-circle" class="w-6 h-6"></i>
+                </div>
+                <p class="text-sm font-medium text-[var(--text-primary)]">No Rate Hikes Detected</p>
+                <p class="text-xs text-[var(--text-muted)] mt-1">Provider rates have remained stable or decreased across your billing ledger.</p>
             </div>
             {% endif %}
         </div>
     </div>
 
     <!-- Disclosed Forecast Assumptions Box -->
-    <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-xs text-slate-600 leading-relaxed">
-        <h4 class="font-bold text-slate-800 uppercase tracking-wider text-[11px] mb-1">
-            🔍 Disclosed Forecasting Methodology & Transparency Notice
+    <div class="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 rounded-2xl text-xs text-[var(--text-secondary)] leading-relaxed">
+        <h4 class="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[11px] mb-1 flex items-center gap-1.5">
+            <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500"></i>
+            <span>Forecasting Transparency & Methodology Notice</span>
         </h4>
-        <p>{{ summary.forecast.disclosed_assumptions }}</p>
+        <p class="text-[var(--text-muted)]">{{ summary.forecast.disclosed_assumptions }}</p>
     </div>
 </div>
 {% endblock %}

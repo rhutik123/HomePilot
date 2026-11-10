@@ -1,75 +1,208 @@
 {% extends "base.html" %}
 
-{% block title %}All Bills - HomePilot{% endblock %}
+{% block title %}All Household Bills — HomePilot{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+
+    <!-- Page Header & Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
-            <h1 class="text-2xl font-bold text-slate-900">Household Bills</h1>
-            <p class="text-sm text-slate-500">Manage and track your family utility bills.</p>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-500">Accounts Payable</span>
+                <span class="text-xs text-slate-500">&bull;</span>
+                <span class="text-xs text-slate-400 font-medium">Household Master Ledger</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1" style="color: var(--text-primary);">
+                Household Utility Bills
+            </h1>
+            <p class="text-xs sm:text-sm mt-0.5" style="color: var(--text-muted);">
+                Monitor and settle multi-tenant recurring utilities, one-off liabilities, and family obligations.
+            </p>
         </div>
-        <a href="{% url 'dashboard_web:dashboard' %}" class="inline-flex items-center text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Dashboard
-        </a>
+        <div class="flex items-center gap-2.5">
+            <a href="{% url 'dashboard_web:bill-upload' %}"
+               class="btn-press inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 transition shadow-sm shadow-brand-600/30">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Add / Upload Bill</span>
+            </a>
+            <a href="{% url 'dashboard_web:dashboard' %}"
+               class="btn-press inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition"
+               style="background-color: var(--bg-card); border-color: var(--border-color); color: var(--text-secondary);">
+                <span>Dashboard</span>
+            </a>
+        </div>
     </div>
 
-    <!-- Filter Tabs -->
-    <div class="flex items-center space-x-2 border-b border-slate-200 pb-3 overflow-x-auto">
-        <a href="{% url 'dashboard_web:bills-list' %}?status=ALL" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'ALL' %}bg-indigo-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">All</a>
-        <a href="{% url 'dashboard_web:bills-list' %}?status=PENDING" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'PENDING' %}bg-amber-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Pending</a>
-        <a href="{% url 'dashboard_web:bills-list' %}?status=PARTIALLY_PAID" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'PARTIALLY_PAID' %}bg-sky-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Partially Paid</a>
-        <a href="{% url 'dashboard_web:bills-list' %}?status=OVERDUE" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'OVERDUE' %}bg-rose-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Overdue</a>
-        <a href="{% url 'dashboard_web:bills-list' %}?status=PAID" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold {% if current_status == 'PAID' %}bg-emerald-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %} transition">Paid</a>
+    <!-- Filter Bar & Quick Status Tabs -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 rounded-2xl border"
+         style="background-color: var(--bg-card); border-color: var(--border-color);">
+        <div class="flex items-center gap-1.5 overflow-x-auto p-1">
+            <a href="{% url 'dashboard_web:bills-list' %}?status=ALL"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 {% if current_status == 'ALL' or not current_status %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <span>All Bills</span>
+            </a>
+            <a href="{% url 'dashboard_web:bills-list' %}?status=PENDING"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 {% if current_status == 'PENDING' %}bg-amber-500 text-white shadow-sm shadow-amber-500/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>Pending</span>
+            </a>
+            <a href="{% url 'dashboard_web:bills-list' %}?status=PARTIALLY_PAID"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 {% if current_status == 'PARTIALLY_PAID' %}bg-sky-500 text-white shadow-sm shadow-sky-500/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                <span>Partially Paid</span>
+            </a>
+            <a href="{% url 'dashboard_web:bills-list' %}?status=OVERDUE"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 {% if current_status == 'OVERDUE' %}bg-rose-600 text-white shadow-sm shadow-rose-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                <span>Overdue</span>
+            </a>
+            <a href="{% url 'dashboard_web:bills-list' %}?status=PAID"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition shrink-0 flex items-center gap-1.5 {% if current_status == 'PAID' %}bg-emerald-600 text-white shadow-sm shadow-emerald-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>Settled (Paid)</span>
+            </a>
+        </div>
+        
+        <div class="px-3 text-xs text-slate-500 font-medium">
+            Showing {{ bills.count }} record{{ bills.count|pluralize }}
+        </div>
     </div>
 
-    <!-- Bills Table / Cards -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <!-- Bills Master Table / Responsive Hybrid Card -->
+    <div class="rounded-2xl border overflow-hidden transition"
+         style="background-color: var(--bg-card); border-color: var(--border-color); box-shadow: var(--shadow-card);">
         {% if bills %}
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-                <thead class="bg-slate-50 text-xs uppercase tracking-wider font-semibold text-slate-500">
+            <table class="min-w-full divide-y text-left text-xs sm:text-sm" style="border-color: var(--border-color);">
+                <thead class="text-[11px] uppercase tracking-wider font-bold"
+                       style="background-color: var(--bg-secondary); color: var(--text-muted); border-color: var(--border-color);">
                     <tr>
-                        <th class="px-6 py-3.5">Provider</th>
-                        <th class="px-6 py-3.5">Category</th>
-                        <th class="px-6 py-3.5">Amount</th>
-                        <th class="px-6 py-3.5">Due Date</th>
-                        <th class="px-6 py-3.5">Assigned To</th>
-                        <th class="px-6 py-3.5">Status</th>
-                        <th class="px-6 py-3.5 text-right">Action</th>
+                        <th class="px-6 py-4">Biller / Provider</th>
+                        <th class="px-6 py-4">Category</th>
+                        <th class="px-6 py-4">Total Amount</th>
+                        <th class="px-6 py-4">Maturity (Due Date)</th>
+                        <th class="px-6 py-4">Assigned Member</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y" style="border-color: var(--border-color);">
                     {% for bill in bills %}
-                    <tr class="hover:bg-slate-50/75 transition">
-                        <td class="px-6 py-4 font-semibold text-slate-900">
-                            <a href="{% url 'dashboard_web:bill-detail' bill.id %}" class="hover:text-indigo-600 transition">{{ bill.provider_name }}</a>
-                        </td>
-                        <td class="px-6 py-4 text-slate-600">{{ bill.get_category_display }}</td>
+                    <tr class="transition hover:bg-slate-800/20 group">
+                        <!-- Provider -->
                         <td class="px-6 py-4">
-                            <span class="font-bold text-slate-900">₹{{ bill.amount }}</span>
-                            {% if bill.status == 'PARTIALLY_PAID' %}
-                            <span class="block text-[11px] text-amber-700 font-medium">₹{{ bill.outstanding_balance }} remaining</span>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold uppercase shrink-0"
+                                     style="background-color: var(--bg-secondary); color: var(--accent-color); border: 1px solid var(--border-color);">
+                                    {{ bill.provider_name|slice:":2" }}
+                                </div>
+                                <div class="min-w-0">
+                                    <a href="{% url 'dashboard_web:bill-detail' bill.id %}"
+                                       class="font-bold block truncate hover:text-brand-400 transition"
+                                       style="color: var(--text-primary);">
+                                        {{ bill.provider_name }}
+                                    </a>
+                                    {% if bill.reference_number %}
+                                    <span class="text-[10px] text-slate-500 block truncate font-mono">Ref: {{ bill.reference_number }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Category -->
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border"
+                                  style="background-color: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary);">
+                                {{ bill.get_category_display }}
+                            </span>
+                        </td>
+
+                        <!-- Amount & Outstanding -->
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col">
+                                <span class="font-extrabold text-sm" style="color: var(--text-primary);">
+                                    ₹{{ bill.amount }}
+                                </span>
+                                {% if bill.status == 'PARTIALLY_PAID' %}
+                                <span class="text-[11px] font-bold text-sky-600 dark:text-sky-400 mt-0.5">
+                                    ₹{{ bill.outstanding_balance }} balance
+                                </span>
+                                {% elif bill.is_overdue %}
+                                <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">
+                                    Past Due
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- Due Date -->
+                        <td class="px-6 py-4">
+                            <span class="font-medium text-xs block" style="color: var(--text-secondary);">
+                                {{ bill.due_date|date:"M d, Y" }}
+                            </span>
+                            {% if bill.status != 'PAID' %}
+                                {% if bill.is_overdue %}
+                                <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400">Overdue milestone</span>
+                                {% else %}
+                                <span class="text-[10px] text-slate-500 dark:text-slate-400">{{ bill.due_date|timeuntil }} remaining</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="text-[10px] text-emerald-400 font-semibold">Settled</span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 text-slate-600">{{ bill.due_date }}</td>
-                        <td class="px-6 py-4 text-slate-600">{{ bill.assigned_to.display_name|default:"Unassigned" }}</td>
+
+                        <!-- Assigned Member -->
+                        <td class="px-6 py-4">
+                            {% if bill.assigned_to %}
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-brand-600/30 text-brand-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                    {{ bill.assigned_to.display_name|slice:":1"|upper }}
+                                </div>
+                                <span class="font-medium text-xs truncate max-w-[120px]" style="color: var(--text-secondary);">
+                                    {{ bill.assigned_to.display_name }}
+                                </span>
+                            </div>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic">Unassigned (Family)</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Status Badge -->
                         <td class="px-6 py-4">
                             {% if bill.status == 'PAID' %}
-                                <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-semibold">Paid</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Paid
+                            </span>
                             {% elif bill.status == 'PARTIALLY_PAID' %}
-                                <span class="bg-sky-100 text-sky-800 text-xs px-2.5 py-1 rounded-full font-semibold">Partially Paid</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span> Partial
+                            </span>
                             {% elif bill.is_overdue %}
-                                <span class="bg-rose-100 text-rose-800 text-xs px-2.5 py-1 rounded-full font-semibold">Overdue</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-rose-400 bg-rose-500/10 border border-rose-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Overdue
+                            </span>
                             {% else %}
-                                <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Pending</span>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Pending
+                            </span>
                             {% endif %}
                         </td>
-                        <td class="px-6 py-4 text-right space-x-2">
-                            <a href="{% url 'dashboard_web:bill-detail' bill.id %}" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 transition">
-                                {% if bill.status != 'PAID' %}Pay / Details{% else %}View Details{% endif %}
-                            </a>
-                            <a href="{% url 'dashboard_web:bill-edit' bill.id %}" class="text-xs font-semibold text-slate-500 hover:text-slate-800">Edit</a>
+
+                        <!-- Actions -->
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <a href="{% url 'dashboard_web:bill-detail' bill.id %}"
+                                   class="btn-press px-3 py-1.5 rounded-lg text-xs font-bold transition border"
+                                   style="background-color: var(--bg-secondary); border-color: var(--border-color); color: var(--accent-color);">
+                                    {% if bill.status != 'PAID' %}Pay / Review{% else %}View Details{% endif %}
+                                </a>
+                                <a href="{% url 'dashboard_web:bill-edit' bill.id %}"
+                                   class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition"
+                                   title="Edit bill metadata">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -77,10 +210,18 @@
             </table>
         </div>
         {% else %}
-        <div class="py-12 text-center text-slate-400 text-sm">
-            No bills found under the current filter.
+        <div class="py-16 text-center" style="color: var(--text-muted);">
+            <div class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3 text-slate-500" style="background-color: var(--bg-secondary);">
+                <i data-lucide="inbox" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-sm font-bold" style="color: var(--text-primary);">No bills match the selected filter</h3>
+            <p class="text-xs mt-1">Try switching status filters or record a new utility bill.</p>
+            <a href="{% url 'dashboard_web:bill-upload' %}" class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 transition">
+                <span>+ Upload Bill</span>
+            </a>
         </div>
         {% endif %}
     </div>
+
 </div>
 {% endblock %}

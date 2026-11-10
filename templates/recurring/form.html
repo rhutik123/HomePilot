@@ -4,35 +4,41 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto space-y-6">
-    <div class="flex items-center justify-between">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900">
-                {% if schedule %}Edit Recurring Schedule{% else %}New Recurring Bill Schedule{% endif %}
-            </h1>
-            <p class="text-sm text-slate-500">Configure recurring utility contracts, rent, or subscription services.</p>
+    <div class="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 shadow-sm shrink-0">
+                <i data-lucide="repeat" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+                    {% if schedule %}Edit Recurring Schedule{% else %}New Recurring Schedule{% endif %}
+                </h1>
+                <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">Configure recurring utility contracts, rent, or subscription services.</p>
+            </div>
         </div>
-        <a href="{% url 'dashboard_web:recurring-list' %}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Recurring Bills
+        <a href="{% url 'dashboard_web:recurring-list' %}" class="text-xs font-semibold text-indigo-500 hover:text-indigo-400 flex items-center gap-1">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+            <span>Back</span>
         </a>
     </div>
 
-    <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+    <div class="bg-[var(--bg-card)] p-6 sm:p-8 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-6">
         <form method="POST" class="space-y-5">
             {% csrf_token %}
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Provider Name -->
                 <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
                         Service Provider / Subscription Name *
                     </label>
-                    <input type="text" name="provider_name" value="{{ schedule.provider_name|default:'' }}" required placeholder="e.g. Netflix, Tata Power, Broadband Fibernet" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" name="provider_name" value="{{ schedule.provider_name|default:'' }}" required placeholder="e.g. Netflix, Tata Power, Broadband Fibernet" class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                 </div>
 
                 <!-- Category -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Category *</label>
-                    <select name="category" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Category *</label>
+                    <select name="category" class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                         {% for val, label in categories %}
                         <option value="{{ val }}" {% if schedule.category == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
@@ -41,15 +47,15 @@
 
                 <!-- Expected Amount -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Expected Amount (₹) *</label>
-                    <input type="number" step="0.01" name="expected_amount" value="{{ schedule.expected_amount|default:'' }}" required placeholder="e.g. 1499.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
-                    <p class="text-[11px] text-slate-400 mt-0.5">Actual bill amounts can differ per cycle</p>
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Expected Amount (₹) *</label>
+                    <input type="number" step="0.01" name="expected_amount" value="{{ schedule.expected_amount|default:'' }}" required placeholder="e.g. 1499.00" class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
+                    <p class="text-[11px] text-[var(--text-muted)] mt-1">Actual bill amounts can differ per cycle</p>
                 </div>
 
                 <!-- Frequency -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Recurrence Frequency *</label>
-                    <select name="frequency" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Recurrence Frequency *</label>
+                    <select name="frequency" class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                         {% for val, label in frequencies %}
                         <option value="{{ val }}" {% if schedule.frequency == val %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
@@ -58,27 +64,27 @@
 
                 <!-- Interval Count -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Interval Multiplier</label>
-                    <input type="number" min="1" max="12" name="interval_count" value="{{ schedule.interval_count|default:'1' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
-                    <p class="text-[11px] text-slate-400 mt-0.5">e.g. 1 = every cycle, 2 = every 2nd cycle</p>
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Interval Multiplier</label>
+                    <input type="number" min="1" max="12" name="interval_count" value="{{ schedule.interval_count|default:'1' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
+                    <p class="text-[11px] text-[var(--text-muted)] mt-1">e.g. 1 = every cycle, 2 = every 2nd cycle</p>
                 </div>
 
                 <!-- Day of Month -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Due Day of Month (1-31) *</label>
-                    <input type="number" min="1" max="31" name="day_of_month" value="{{ schedule.day_of_month|default:'1' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Due Day of Month (1-31) *</label>
+                    <input type="number" min="1" max="31" name="day_of_month" value="{{ schedule.day_of_month|default:'1' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                 </div>
 
                 <!-- Next Due Date -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">First / Next Target Due Date *</label>
-                    <input type="date" name="next_due_date" value="{% if schedule %}{{ schedule.next_due_date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">First / Next Target Due Date *</label>
+                    <input type="date" name="next_due_date" value="{% if schedule %}{{ schedule.next_due_date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}" required class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                 </div>
 
                 <!-- Assigned Member -->
                 <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Payment Responsibility</label>
-                    <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Assign Payment Responsibility</label>
+                    <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                         <option value="">-- Unassigned (Household Shared) --</option>
                         {% for m in members %}
                         <option value="{{ m.id }}" {% if schedule.assigned_to_id == m.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
@@ -88,23 +94,24 @@
 
                 <!-- Notes -->
                 <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
-                    <textarea name="notes" rows="2" placeholder="Account numbers, customer care links, or terms..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">{{ schedule.notes|default:'' }}</textarea>
+                    <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Notes</label>
+                    <textarea name="notes" rows="2" placeholder="Account numbers, customer care links, or terms..." class="w-full px-3.5 py-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">{{ schedule.notes|default:'' }}</textarea>
                 </div>
 
                 <!-- Active Checkbox -->
-                <div class="sm:col-span-2 flex items-center space-x-2 pt-1">
-                    <input type="checkbox" id="is_active" name="is_active" {% if not schedule or schedule.is_active %}checked{% endif %} class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
-                    <label for="is_active" class="text-xs font-semibold text-slate-700">Schedule is Active (automatically generate upcoming bills)</label>
+                <div class="sm:col-span-2 flex items-center gap-2.5 pt-1">
+                    <input type="checkbox" id="is_active" name="is_active" {% if not schedule or schedule.is_active %}checked{% endif %} class="w-4 h-4 text-indigo-600 rounded border-[var(--border-color)] bg-[var(--bg-input)] focus:ring-indigo-500">
+                    <label for="is_active" class="text-xs font-semibold text-[var(--text-primary)]">Schedule is Active (automatically generate upcoming bills)</label>
                 </div>
             </div>
 
-            <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
-                <a href="{% url 'dashboard_web:recurring-list' %}" class="text-xs font-semibold text-slate-500 hover:text-slate-800">
+            <div class="pt-4 border-t border-[var(--border-color)] flex items-center justify-between">
+                <a href="{% url 'dashboard_web:recurring-list' %}" class="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
                     Cancel
                 </a>
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-xs transition shadow-sm">
-                    💾 {% if schedule %}Save Changes{% else %}Create Schedule{% endif %}
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold px-6 py-2.5 rounded-xl text-xs transition shadow-sm flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>{% if schedule %}Save Changes{% else %}Create Schedule{% endif %}</span>
                 </button>
             </div>
         </form>

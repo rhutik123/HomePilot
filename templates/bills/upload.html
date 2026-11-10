@@ -1,71 +1,114 @@
 {% extends "base.html" %}
 
-{% block title %}Add Household Bill - HomePilot{% endblock %}
+{% block title %}Record Household Bill — HomePilot{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
+
+    <!-- Page Header & Action Navigation -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
         <div>
-            <h1 class="text-2xl font-bold text-slate-900">Add Household Bill</h1>
-            <p class="text-sm text-slate-500">Upload single or multiple digital bills to extract details with AI, or record paper and verbal bills manually.</p>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'dashboard_web:bills-list' %}" class="text-xs font-bold text-brand-400 hover:underline">Bills</a>
+                <span class="text-xs text-slate-500">/</span>
+                <span class="text-xs text-slate-400 font-medium">Capture & Ingestion</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1" style="color: var(--text-primary);">
+                Add Household Bill
+            </h1>
+            <p class="text-xs sm:text-sm mt-0.5" style="color: var(--text-muted);">
+                Upload digital bills (PDF, images) for automated AI parsing, or log paper and verbal bills manually.
+            </p>
         </div>
-        <a href="{% url 'dashboard_web:dashboard' %}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-            &larr; Back to Dashboard
+        <a href="{% url 'dashboard_web:dashboard' %}"
+           class="btn-press inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition"
+           style="background-color: var(--bg-card); border-color: var(--border-color); color: var(--text-secondary);">
+            <span>&larr; Dashboard</span>
         </a>
     </div>
 
     {% if step == 'upload' %}
-    <!-- Pending Review Queue (if any draft documents exist) -->
+    
+    <!-- Pending Review Queue (Draft Ingestion Stage) -->
     {% if unreviewed_docs.exists %}
-    <div class="bg-amber-50/70 border border-amber-200 rounded-2xl p-6 space-y-4">
+    <div class="rounded-2xl border p-5 sm:p-6 space-y-4 transition"
+         style="background-color: var(--warning-bg); border-color: rgba(245, 158, 11, 0.3);">
         <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <span class="text-xl">📋</span>
-                <h3 class="text-sm font-bold text-amber-950">Documents Awaiting Your Review ({{ unreviewed_docs.count }})</h3>
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <i data-lucide="inbox" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-amber-300">
+                        Documents Awaiting Your Review ({{ unreviewed_docs.count }})
+                    </h3>
+                    <span class="text-[11px] text-amber-200/70">Saved as drafts until confirmed by household</span>
+                </div>
             </div>
-            <span class="text-xs text-amber-800">Saved as drafts until confirmed</span>
+            <span class="text-xs text-amber-400 font-mono font-bold">{{ unreviewed_docs.count }} Draft{{ unreviewed_docs.count|pluralize }}</span>
         </div>
-        <div class="divide-y divide-amber-200/60 bg-white rounded-xl border border-amber-200/80 shadow-xs">
+
+        <div class="divide-y rounded-xl border overflow-hidden"
+             style="background-color: var(--bg-card); border-color: var(--border-color);">
             {% for doc in unreviewed_docs %}
-            <div class="p-3.5 flex items-center justify-between hover:bg-amber-50/30 transition">
-                <div class="flex items-center space-x-3">
-                    <span class="text-lg">📄</span>
-                    <div>
-                        <p class="text-xs font-semibold text-slate-900">{{ doc.file_name }}</p>
-                        <p class="text-[11px] text-slate-500">
+            <div class="p-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3 transition hover:bg-slate-800/20">
+                <div class="flex items-start gap-3 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-bold truncate" style="color: var(--text-primary);">{{ doc.file_name }}</p>
+                        <p class="text-[11px] mt-0.5" style="color: var(--text-muted);">
                             Uploaded {{ doc.created_at|timesince }} ago &bull; {{ doc.file_size|filesizeformat }}
                             {% if doc.extraction_status == 'SUCCESS' %}
-                            <span class="ml-1 text-emerald-700 font-medium">&bull; Parsed</span>
+                            <span class="ml-1 text-emerald-700 dark:text-emerald-400 font-semibold">&bull; Parsed</span>
                             {% elif doc.extraction_status == 'NEEDS_REVIEW' %}
-                            <span class="ml-1 text-amber-700 font-medium">&bull; Needs Review</span>
+                            <span class="ml-1 text-amber-700 dark:text-amber-400 font-semibold">&bull; Needs Review</span>
                             {% elif doc.extraction_status == 'FAILED' %}
-                            <span class="ml-1 text-rose-700 font-medium">&bull; Extraction Failed</span>
+                            <span class="ml-1 text-rose-700 dark:text-rose-400 font-semibold">&bull; Extraction Failed</span>
                             {% endif %}
                         </p>
                         {% if doc.is_possible_duplicate %}
-                        <p class="text-[11px] text-amber-700 font-medium mt-0.5">⚠️ Duplicate Checksum Warning: {{ doc.duplicate_warning }}</p>
+                        <p class="text-[11px] text-amber-700 dark:text-amber-400 font-medium mt-0.5 flex items-center gap-1">
+                            <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+                            <span>Duplicate Checksum: {{ doc.duplicate_warning }}</span>
+                        </p>
                         {% endif %}
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 flex-wrap">
-                    <a href="{% url 'bills:document-download' doc.id %}" target="_blank" class="text-slate-600 hover:text-slate-900 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" title="Download original file">
-                        ⬇️ Download
+
+                <div class="flex items-center gap-2 flex-wrap shrink-0">
+                    <a href="{% url 'bills:document-download' doc.id %}" target="_blank"
+                       class="btn-press text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1"
+                       style="background-color: var(--bg-secondary); border-color: var(--border-color);"
+                       title="Download original file">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>Download</span>
                     </a>
                     <form method="POST" action="{% url 'dashboard_web:bill-document-retry' doc.id %}" class="inline">
                         {% csrf_token %}
-                        <button type="submit" class="text-amber-700 hover:text-amber-900 text-xs px-2.5 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-100/60 transition" title="Re-run AI extraction">
-                            🔄 Retry
+                        <button type="submit"
+                                class="btn-press text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 text-xs px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1"
+                                style="background-color: var(--warning-bg); border-color: rgba(245, 158, 11, 0.3);"
+                                title="Re-run AI extraction">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                            <span>Retry</span>
                         </button>
                     </form>
-                    <form method="POST" action="{% url 'dashboard_web:bill-document-delete' doc.id %}" class="inline" onsubmit="return confirm('Are you sure you want to delete this draft document?');">
+                    <form method="POST" action="{% url 'dashboard_web:bill-document-delete' doc.id %}" class="inline"
+                          onsubmit="return confirm('Are you sure you want to delete this draft document?');">
                         {% csrf_token %}
-                        <button type="submit" class="text-rose-600 hover:text-rose-800 text-xs px-2.5 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition" title="Delete draft document">
-                            🗑️ Delete
+                        <button type="submit"
+                                class="btn-press text-rose-700 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 text-xs px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1"
+                                style="background-color: var(--danger-bg); border-color: rgba(244, 63, 94, 0.3);"
+                                title="Delete draft document">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            <span>Delete</span>
                         </button>
                     </form>
-                    <a href="{% url 'dashboard_web:bill-upload' %}?doc_id={{ doc.id }}" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-xs">
-                        Review & Confirm &rarr;
+                    <a href="{% url 'dashboard_web:bill-upload' %}?doc_id={{ doc.id }}"
+                       class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 transition shadow-sm">
+                        <span>Review & Confirm &rarr;</span>
                     </a>
                 </div>
             </div>
@@ -74,54 +117,96 @@
     </div>
     {% endif %}
 
-    <!-- Option Selector Tabs -->
-    <div class="bg-slate-100 p-1.5 rounded-2xl flex items-center space-x-2 border border-slate-200">
-        <button type="button" id="tab-btn-upload" onclick="switchTab('upload')" class="flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition {% if mode != 'manual' %}bg-white text-indigo-700 shadow-sm border border-slate-200{% else %}text-slate-600 hover:text-slate-900{% endif %}">
-            📄 Option A: Upload Digital Bill
+    <!-- Mode Selector Tabs: Option A vs Option B -->
+    <div class="p-1 rounded-2xl border flex items-center gap-1"
+         style="background-color: var(--bg-card); border-color: var(--border-color);">
+        <button type="button" id="tab-btn-upload" onclick="switchTab('upload')"
+                class="flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 {% if mode != 'manual' %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+            <i data-lucide="scan-line" class="w-4 h-4"></i>
+            <span>Option A: Upload Digital Bill</span>
         </button>
-        <button type="button" id="tab-btn-manual" onclick="switchTab('manual')" class="flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition {% if mode == 'manual' %}bg-white text-indigo-700 shadow-sm border border-slate-200{% else %}text-slate-600 hover:text-slate-900{% endif %}">
-            ✍️ Option B: Enter Bill Manually
+        <button type="button" id="tab-btn-manual" onclick="switchTab('manual')"
+                class="flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 {% if mode == 'manual' %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+            <i data-lucide="pen-tool" class="w-4 h-4"></i>
+            <span>Option B: Enter Bill Manually</span>
         </button>
     </div>
 
-    <!-- PANEL A: Upload Bill Document -->
-    <div id="panel-upload" class="{% if mode == 'manual' %}hidden{% endif %} bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-        <div class="border-b border-slate-100 pb-4">
-            <span class="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">Option A &bull; AI Powered</span>
-            <h2 class="text-lg font-bold text-slate-900 mt-2">Upload Bill Document(s)</h2>
-            <p class="text-xs text-slate-500">AI automatically parses provider, amount, due date, and account numbers. Multiple file uploads supported.</p>
+    <!-- PANEL A: Digital Bill Upload -->
+    <div id="panel-upload" class="{% if mode == 'manual' %}hidden{% endif %} rounded-2xl border p-6 sm:p-8 space-y-6 transition"
+         style="background-color: var(--bg-card); border-color: var(--border-color); box-shadow: var(--shadow-card);">
+        <div class="border-b pb-4 flex items-center justify-between" style="border-color: var(--border-color);">
+            <div>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded-md border border-brand-500/20">
+                    AI OCR & Document Ingestion
+                </span>
+                <h2 class="text-base sm:text-lg font-bold mt-2" style="color: var(--text-primary);">
+                    Upload Digital Bill(s)
+                </h2>
+                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                    AI automatically parses provider, balance, due dates, and account numbers. Multiple batch uploads supported.
+                </p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0">
+                <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+            </div>
         </div>
 
-        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-500 transition bg-slate-50/50">
-            <span class="text-5xl block mb-3">📄</span>
-            <h3 class="text-base font-semibold text-slate-900">Select or drop bill files</h3>
-            <p class="text-xs text-slate-500 mt-1 mb-4">Supports PDF, scanned PDF, PNG, JPG, JPEG, and WEBP (Max 10MB per file). Select multiple files to upload in batch.</p>
+        <!-- Dropzone Area -->
+        <div class="border-2 border-dashed rounded-2xl p-8 text-center transition"
+             style="border-color: var(--border-subtle); background-color: var(--bg-secondary);">
+            <div class="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-3 text-brand-400 bg-brand-500/10">
+                <i data-lucide="file-up" class="w-7 h-7"></i>
+            </div>
+            <h3 class="text-sm font-bold" style="color: var(--text-primary);">Select or drop bill files</h3>
+            <p class="text-xs mt-1 mb-5" style="color: var(--text-muted);">
+                Supports PDF, scanned PDF, PNG, JPG, JPEG, and WEBP (Max 10MB per file). Select multiple files to upload in batch.
+            </p>
 
             <form method="POST" enctype="multipart/form-data" class="space-y-4 max-w-md mx-auto">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="upload_file">
-                <input type="file" name="bill_files" multiple required accept=".pdf,.png,.jpg,.jpeg,.webp" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer border border-slate-200 rounded-xl bg-white">
+                <input type="file" name="bill_files" multiple required accept=".pdf,.png,.jpg,.jpeg,.webp"
+                       class="block w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-600/20 file:text-brand-300 hover:file:bg-brand-600/30 cursor-pointer border rounded-xl p-1"
+                       style="background-color: var(--bg-input); border-color: var(--border-color);">
 
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-sm flex items-center justify-center space-x-2">
-                    <span>✨ Upload & Analyze with AI</span>
+                <button type="submit"
+                        class="btn-press w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 transition shadow-sm shadow-brand-600/30">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span>Upload & Analyze with AI</span>
                 </button>
             </form>
         </div>
 
-        <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 flex items-start space-x-3 text-xs text-indigo-900">
-            <span class="text-base">💡</span>
+        <div class="rounded-xl p-4 border flex items-start gap-3 text-xs"
+             style="background-color: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary);">
+            <i data-lucide="info" class="w-4 h-4 text-brand-400 shrink-0 mt-0.5"></i>
             <p>
-                <strong>Have a physical, verbal, or handwritten bill?</strong> Click on the <button type="button" onclick="switchTab('manual')" class="underline font-semibold text-indigo-700 hover:text-indigo-900">Enter Bill Manually</button> tab to record it without uploading any file.
+                <strong>Have a physical, verbal, or handwritten receipt?</strong> Click the
+                <button type="button" onclick="switchTab('manual')" class="underline font-bold text-brand-400 hover:text-brand-300">Enter Bill Manually</button>
+                tab to record it without uploading any file.
             </p>
         </div>
     </div>
 
-    <!-- PANEL B: Enter Bill Manually -->
-    <div id="panel-manual" class="{% if mode != 'manual' %}hidden{% endif %} bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-        <div class="border-b border-slate-100 pb-4">
-            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">Option B &bull; Independent Manual Entry</span>
-            <h2 class="text-lg font-bold text-slate-900 mt-2">Enter Household Bill Details</h2>
-            <p class="text-xs text-slate-500">Works for paper receipts, handwritten bills, verbal utilities, or when digital copies are unavailable. No file upload required.</p>
+    <!-- PANEL B: Manual Bill Entry -->
+    <div id="panel-manual" class="{% if mode != 'manual' %}hidden{% endif %} rounded-2xl border p-6 sm:p-8 space-y-6 transition"
+         style="background-color: var(--bg-card); border-color: var(--border-color); box-shadow: var(--shadow-card);">
+        <div class="border-b pb-4 flex items-center justify-between" style="border-color: var(--border-color);">
+            <div>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+                    Manual Ledger Ingestion
+                </span>
+                <h2 class="text-base sm:text-lg font-bold mt-2" style="color: var(--text-primary);">
+                    Enter Household Bill Details
+                </h2>
+                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                    Ideal for paper receipts, handwritten bills, verbal utilities, or cash expenses. No file upload required.
+                </p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                <i data-lucide="pen-tool" class="w-5 h-5"></i>
+            </div>
         </div>
 
         <form method="POST" class="space-y-5">
@@ -131,57 +216,96 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Provider Name -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Provider / Company Name *</label>
-                    <input type="text" name="provider_name" value="{{ manual_data.provider_name|default:'' }}" required placeholder="e.g. Adani Electricity, Tata Power" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Provider / Biller *
+                    </label>
+                    <input type="text" name="provider_name" value="{{ manual_data.provider_name|default:'' }}" required
+                           placeholder="e.g. Adani Electricity, Tata Power"
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Category -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Bill Category *</label>
-                    <select name="category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Bill Category *
+                    </label>
+                    <select name="category" required
+                            class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                            style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                         {% for val, label in categories %}
-                        <option value="{{ val }}" {% if manual_data.category == val %}selected{% endif %}>{{ label }}</option>
+                        <option value="{{ val }}" {% if manual_data.category == val %}selected{% endif %} style="background-color: var(--bg-card); color: var(--text-primary);">
+                            {{ label }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <!-- Amount -->
+                <!-- Amount Due -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Amount Due *</label>
-                    <input type="number" step="0.01" name="amount" value="{{ manual_data.amount|default:'' }}" required placeholder="0.00" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Amount Due *
+                    </label>
+                    <input type="number" step="0.01" name="amount" value="{{ manual_data.amount|default:'' }}" required
+                           placeholder="0.00"
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-extrabold transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Currency -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Currency</label>
-                    <input type="text" name="currency" value="{{ manual_data.currency|default:'INR' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Currency
+                    </label>
+                    <input type="text" name="currency" value="{{ manual_data.currency|default:'INR' }}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-mono transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Due Date -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Payment Due Date *</label>
-                    <input type="date" name="due_date" value="{{ manual_data.due_date|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Payment Due Date *
+                    </label>
+                    <input type="date" name="due_date" value="{{ manual_data.due_date|default:'' }}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Issue Date -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Issue Date (Optional)</label>
-                    <input type="date" name="issue_date" value="{{ manual_data.issue_date|default:'' }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Issue Date (Optional)
+                    </label>
+                    <input type="date" name="issue_date" value="{{ manual_data.issue_date|default:'' }}"
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
-                <!-- Consumer / Account / Reference Number -->
+                <!-- Reference Number -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Consumer / Account # (Optional)</label>
-                    <input type="text" name="reference_number" value="{{ manual_data.reference_number|default:'' }}" placeholder="e.g. CA-99238102" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Consumer / Account # (Optional)
+                    </label>
+                    <input type="text" name="reference_number" value="{{ manual_data.reference_number|default:'' }}"
+                           placeholder="e.g. CA-99238102"
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-mono transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Assign Payment To Member -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Payment To</label>
-                    <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="">-- Unassigned (Household Shared) --</option>
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Assign Payment To
+                    </label>
+                    <select name="assigned_to"
+                            class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                            style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
+                        <option value="" style="background-color: var(--bg-card); color: var(--text-primary);">-- Unassigned (Household Shared) --</option>
                         {% for m in members %}
-                        <option value="{{ m.id }}" {% if manual_data.assigned_to == m.id|stringformat:"s" or not manual_data.assigned_to and m.id == user.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
+                        <option value="{{ m.id }}" {% if manual_data.assigned_to == m.id|stringformat:"s" or not manual_data.assigned_to and m.id == user.id %}selected{% endif %} style="background-color: var(--bg-card); color: var(--text-primary);">
+                            {{ m.display_name }} ({{ m.username }})
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -189,20 +313,27 @@
 
             <!-- Billing Period -->
             <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Billing Period (Optional)</label>
-                <input type="text" name="billing_period" value="{{ manual_data.billing_period|default:'' }}" placeholder="e.g. November 2026" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">Billing Period (Optional)</label>
+                <input type="text" name="billing_period" value="{{ manual_data.billing_period|default:'' }}"
+                       placeholder="e.g. November 2026"
+                       class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                       style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
             </div>
 
             <!-- Notes -->
             <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notes (Optional)</label>
-                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Paid in cash to building maintenance; verbal quote...">{{ manual_data.notes|default:'' }}</textarea>
+                <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">Notes (Optional)</label>
+                <textarea name="notes" rows="2" placeholder="e.g. Paid in cash to building maintenance; verbal quote..."
+                          class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                          style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">{{ manual_data.notes|default:'' }}</textarea>
             </div>
 
-            <div class="pt-4 flex items-center justify-between border-t border-slate-100">
-                <a href="{% url 'dashboard_web:dashboard' %}" class="text-sm font-semibold text-slate-500 hover:text-slate-700">Cancel</a>
-                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-sm flex items-center space-x-2">
-                    <span>💾 Save Manual Bill</span>
+            <div class="pt-4 flex items-center justify-between border-t" style="border-color: var(--border-color);">
+                <a href="{% url 'dashboard_web:dashboard' %}" class="text-xs font-semibold text-slate-400 hover:text-slate-200">Cancel</a>
+                <button type="submit"
+                        class="btn-press inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-sm">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>Save Manual Bill</span>
                 </button>
             </div>
         </form>
@@ -210,63 +341,80 @@
 
     <script>
     function switchTab(target) {
-        const panelUpload = document.getElementById('panel-upload');
-        const panelManual = document.getElementById('panel-manual');
-        const btnUpload = document.getElementById('tab-btn-upload');
-        const btnManual = document.getElementById('tab-btn-manual');
+        var panelUpload = document.getElementById('panel-upload');
+        var panelManual = document.getElementById('panel-manual');
+        var btnUpload = document.getElementById('tab-btn-upload');
+        var btnManual = document.getElementById('tab-btn-manual');
 
         if (target === 'manual') {
             panelUpload.classList.add('hidden');
             panelManual.classList.remove('hidden');
-            btnManual.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition bg-white text-indigo-700 shadow-sm border border-slate-200";
-            btnUpload.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900";
+            btnManual.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 bg-brand-600 text-white shadow-sm shadow-brand-600/30";
+            btnUpload.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40";
         } else {
             panelManual.classList.add('hidden');
             panelUpload.classList.remove('hidden');
-            btnUpload.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition bg-white text-indigo-700 shadow-sm border border-slate-200";
-            btnManual.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition text-slate-600 hover:text-slate-900";
+            btnUpload.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 bg-brand-600 text-white shadow-sm shadow-brand-600/30";
+            btnManual.className = "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/40";
         }
+        if (window.lucide) lucide.createIcons();
     }
     </script>
 
     {% elif step == 'review' %}
     <!-- Step 2: Review & Confirm Extracted Information -->
-    <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-        <div class="border-b border-slate-200 pb-4">
-            <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">Step 2: Review & Verify</span>
-                {% if extracted_data.provider_used %}
-                <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                    Engine: {{ extracted_data.provider_used|upper }} ({{ extracted_data.model_used|default:"standard" }})
-                </span>
-                {% endif %}
+    <div class="rounded-2xl border p-6 sm:p-8 space-y-6 transition"
+         style="background-color: var(--bg-card); border-color: var(--border-color); box-shadow: var(--shadow-card);">
+        <div class="border-b pb-4 flex items-center justify-between" style="border-color: var(--border-color);">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+                        Step 2: Review & Verify
+                    </span>
+                    {% if extracted_data.provider_used %}
+                    <span class="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded border" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+                        Engine: {{ extracted_data.provider_used|upper }} ({{ extracted_data.model_used|default:"standard" }})
+                    </span>
+                    {% endif %}
+                </div>
+                <h2 class="text-base sm:text-lg font-bold mt-2" style="color: var(--text-primary);">
+                    Verify Bill Details Before Saving
+                </h2>
+                <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+                    Review the AI-extracted fields below. You can correct any values before finalizing this household bill.
+                </p>
             </div>
-            <h2 class="text-lg font-bold text-slate-900 mt-2">Verify Bill Details Before Saving</h2>
-            <p class="text-xs text-slate-500">Please review the extracted information below. Correct any fields before finalizing.</p>
+            <div class="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center shrink-0">
+                <i data-lucide="check-square" class="w-5 h-5"></i>
+            </div>
         </div>
 
-        {% if extracted_data.error %}
-        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2.5">
-            <span class="text-base">⚠️</span>
+        {% if extracted_data.error or current_doc.extraction_status == 'FAILED' or current_doc.extraction_status == 'NEEDS_REVIEW' %}
+        <div class="p-4 rounded-xl border text-xs flex items-start gap-3"
+             style="background-color: var(--warning-bg); border-color: rgba(245, 158, 11, 0.3); color: var(--warning-color);">
+            <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
             <div>
                 <p class="font-bold">Automated Extraction Notice</p>
-                <p class="mt-0.5">{{ extracted_data.error }}</p>
-                <p class="mt-0.5 text-slate-600">You can verify and fill in any missing details manually below before confirming.</p>
+                <p class="mt-0.5 text-slate-300">Could not automatically extract all bill details. You can enter or correct the information manually.</p>
+                {% if extracted_data.error %}
+                <p class="mt-0.5 text-slate-400 font-mono text-[10px]">{{ extracted_data.error }}</p>
+                {% endif %}
             </div>
         </div>
         {% endif %}
 
         {% if current_doc and current_doc.is_possible_duplicate %}
-        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2.5">
-            <span class="text-base">⚠️</span>
+        <div class="p-4 rounded-xl border text-xs flex items-start gap-3"
+             style="background-color: var(--warning-bg); border-color: rgba(245, 158, 11, 0.3); color: var(--warning-color);">
+            <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
             <div>
                 <p class="font-bold">Possible Duplicate Document Detected</p>
-                <p class="mt-0.5">{{ current_doc.duplicate_warning }} Please check that this bill has not already been recorded.</p>
+                <p class="mt-0.5 text-slate-300">{{ current_doc.duplicate_warning }} Please check that this bill has not already been recorded.</p>
             </div>
         </div>
         {% endif %}
 
-        <form method="POST" class="space-y-4">
+        <form method="POST" class="space-y-5">
             {% csrf_token %}
             <input type="hidden" name="action" value="confirm_bill">
             <input type="hidden" name="doc_id" value="{{ doc_id }}">
@@ -274,72 +422,102 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <!-- Provider Name -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Provider / Company Name *
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Provider / Entity Name *
                         {% if not extracted_data.provider_name %}
-                        <span class="text-amber-600 text-[10px] lowercase font-normal">(needs review)</span>
+                        <span class="text-amber-400 text-[10px] lowercase font-normal">(needs review)</span>
                         {% endif %}
                     </label>
-                    <input type="text" name="provider_name" value="{{ extracted_data.provider_name|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border {% if not extracted_data.provider_name %}border-amber-300 bg-amber-50/20{% else %}border-slate-300{% endif %} text-sm focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" name="provider_name" value="{{ extracted_data.provider_name|default:'' }}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold transition focus:ring-2 focus:ring-brand-500 outline-none {% if not extracted_data.provider_name %}border-amber-400/50{% endif %}"
+                           style="background-color: var(--bg-input); border-color: {% if not extracted_data.provider_name %}rgba(245, 158, 11, 0.5){% else %}var(--border-color){% endif %}; color: var(--text-primary);">
                 </div>
 
                 <!-- Category -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Category *</label>
-                    <select name="category" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Category *
+                    </label>
+                    <select name="category" required
+                            class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                            style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                         {% for val, label in categories %}
-                        <option value="{{ val }}" {% if extracted_data.category == val %}selected{% endif %}>{{ label }}</option>
+                        <option value="{{ val }}" {% if extracted_data.category == val %}selected{% endif %} style="background-color: var(--bg-card); color: var(--text-primary);">
+                            {{ label }}
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
 
-                <!-- Amount -->
+                <!-- Amount Due -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
                         Amount Due *
                         {% if not extracted_data.amount %}
-                        <span class="text-amber-600 text-[10px] lowercase font-normal">(needs review)</span>
+                        <span class="text-amber-700 dark:text-amber-400 text-[10px] lowercase font-semibold">(needs review)</span>
                         {% endif %}
                     </label>
-                    <input type="number" step="0.01" name="amount" value="{{ extracted_data.amount|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border {% if not extracted_data.amount %}border-amber-300 bg-amber-50/20{% else %}border-slate-300{% endif %} text-sm focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" step="0.01" name="amount" value="{{ extracted_data.amount|default:'' }}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-extrabold transition focus:ring-2 focus:ring-brand-500 outline-none {% if not extracted_data.amount %}border-amber-400/50{% endif %}"
+                           style="background-color: var(--bg-input); border-color: {% if not extracted_data.amount %}rgba(245, 158, 11, 0.5){% else %}var(--border-color){% endif %}; color: var(--text-primary);">
                 </div>
 
                 <!-- Currency -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Currency</label>
-                    <input type="text" name="currency" value="{{ extracted_data.currency|default:'INR' }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Currency
+                    </label>
+                    <input type="text" name="currency" value="{{ extracted_data.currency|default:'INR' }}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-mono transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Payment Due Date -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Payment Due Date *
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Payment Due Date (Maturity) *
                         {% if not extracted_data.due_date %}
-                        <span class="text-amber-600 text-[10px] lowercase font-normal">(needs review)</span>
+                        <span class="text-amber-700 dark:text-amber-400 text-[10px] lowercase font-semibold">(needs review)</span>
                         {% endif %}
                     </label>
-                    <input type="date" name="due_date" value="{{ extracted_data.due_date|default:'' }}" required class="w-full px-3.5 py-2.5 rounded-xl border {% if not extracted_data.due_date %}border-amber-300 bg-amber-50/20{% else %}border-slate-300{% endif %} text-sm focus:ring-2 focus:ring-indigo-500">
+                    <input type="date" name="due_date" value="{{ extracted_data.due_date|default:'' }}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none {% if not extracted_data.due_date %}border-amber-400/50{% endif %}"
+                           style="background-color: var(--bg-input); border-color: {% if not extracted_data.due_date %}rgba(245, 158, 11, 0.5){% else %}var(--border-color){% endif %}; color: var(--text-primary);">
                 </div>
 
                 <!-- Issue Date -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Issue Date (Optional)</label>
-                    <input type="date" name="issue_date" value="{{ extracted_data.issue_date|default:'' }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Issue Date (Optional)
+                    </label>
+                    <input type="date" name="issue_date" value="{{ extracted_data.issue_date|default:'' }}"
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
-                <!-- Reference / Account Number -->
+                <!-- Reference Number -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Consumer / Account #</label>
-                    <input type="text" name="reference_number" value="{{ extracted_data.reference_number|default:'' }}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Consumer / Account #
+                    </label>
+                    <input type="text" name="reference_number" value="{{ extracted_data.reference_number|default:'' }}"
+                           class="w-full px-3.5 py-2.5 rounded-xl border text-sm font-mono transition focus:ring-2 focus:ring-brand-500 outline-none"
+                           style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
 
                 <!-- Assign To Member -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Assign Payment To</label>
-                    <select name="assigned_to" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                        <option value="">-- Unassigned (Household Shared) --</option>
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">
+                        Assign Payment To
+                    </label>
+                    <select name="assigned_to"
+                            class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                            style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
+                        <option value="" style="background-color: var(--bg-card); color: var(--text-primary);">-- Unassigned (Household Shared) --</option>
                         {% for m in members %}
-                        <option value="{{ m.id }}" {% if extracted_data.assigned_to == m.id|stringformat:"s" or not extracted_data.assigned_to and m.id == user.id %}selected{% endif %}>{{ m.display_name }} ({{ m.username }})</option>
+                        <option value="{{ m.id }}" {% if extracted_data.assigned_to == m.id|stringformat:"s" or not extracted_data.assigned_to and m.id == user.id %}selected{% endif %} style="background-color: var(--bg-card); color: var(--text-primary);">
+                            {{ m.display_name }} ({{ m.username }})
+                        </option>
                         {% endfor %}
                     </select>
                 </div>
@@ -347,24 +525,31 @@
 
             <!-- Billing Period -->
             <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Billing Period</label>
-                <input type="text" name="billing_period" value="{{ extracted_data.billing_period|default:'' }}" placeholder="e.g. October 2026" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">Billing Period</label>
+                <input type="text" name="billing_period" value="{{ extracted_data.billing_period|default:'' }}" placeholder="e.g. October 2026"
+                       class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                       style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">
             </div>
 
             <!-- Notes -->
             <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Notes</label>
-                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Optional notes for family members...">{{ extracted_data.notes|default:'' }}</textarea>
+                <label class="block text-xs font-bold uppercase tracking-wider mb-1" style="color: var(--text-secondary);">Notes</label>
+                <textarea name="notes" rows="2" class="w-full px-3.5 py-2.5 rounded-xl border text-sm transition focus:ring-2 focus:ring-brand-500 outline-none"
+                          placeholder="Optional notes for family members..."
+                          style="background-color: var(--bg-input); border-color: var(--border-color); color: var(--text-primary);">{{ extracted_data.notes|default:'' }}</textarea>
             </div>
 
-            <div class="pt-4 flex items-center justify-between border-t border-slate-100">
-                <a href="{% url 'dashboard_web:bill-upload' %}" class="text-sm font-semibold text-slate-500 hover:text-slate-700">Cancel</a>
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition shadow-sm">
-                    💾 Confirm & Save Bill
+            <div class="pt-4 flex items-center justify-between border-t" style="border-color: var(--border-color);">
+                <a href="{% url 'dashboard_web:bill-upload' %}" class="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition">Cancel</a>
+                <button type="submit"
+                        class="btn-press inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 transition shadow-sm shadow-brand-600/30">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>Confirm & Save Bill</span>
                 </button>
             </div>
         </form>
     </div>
     {% endif %}
+
 </div>
 {% endblock %}

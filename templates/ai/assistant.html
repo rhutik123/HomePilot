@@ -1,29 +1,33 @@
 {% extends "base.html" %}
 {% load ai_markdown %}
 
-{% block title %}HomePilot AI Assistant - {{ household.name }}{% endblock %}
+{% block title %}AI Financial Copilot - {{ household.name }} | HomePilot{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- Top Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[var(--border-color)]">
         <div>
             <div class="flex items-center gap-3">
-                <span class="text-3xl">🤖</span>
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 shadow-sm shrink-0">
+                    <i data-lucide="bot" class="w-5 h-5"></i>
+                </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Household AI Assistant</h1>
-                    <p class="text-sm text-slate-500">
-                        Ask natural-language questions about your bills, spending trends, and payment milestones.
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Household AI Assistant</h1>
+                    <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
+                        Ask natural-language questions about bills, spending trends, and payment milestones.
                     </p>
                 </div>
             </div>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                🔒 Strict Tool-Calling Guardrails Enabled
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                <span>Strict Tool-Calling Guardrails Enabled</span>
             </span>
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                🏠 {{ household.name }}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                <i data-lucide="home" class="w-3.5 h-3.5"></i>
+                <span>{{ household.name }}</span>
             </span>
         </div>
     </div>
@@ -36,56 +40,77 @@
             <form method="POST" action="{% url 'dashboard_web:ai-assistant-new' %}">
                 {% csrf_token %}
                 <input type="hidden" name="household_id" value="{{ household.id }}">
-                <button type="submit" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition text-sm">
-                    <span>+ New Conversation</span>
+                <button type="submit" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold py-2.5 px-4 rounded-xl shadow-sm transition text-sm">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>New Thread</span>
                 </button>
             </form>
 
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Your Conversations</h3>
+            <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm p-4">
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <h3 class="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
+                        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                        <span>Recent Threads</span>
+                    </h3>
+                    <span class="text-[11px] font-semibold text-[var(--text-muted)]">{{ conversations|length }}</span>
+                </div>
                 <div class="space-y-1.5 max-h-[350px] overflow-y-auto pr-1">
                     {% for conv in conversations %}
                     <a href="{% url 'dashboard_web:ai-assistant-conversation' conv.id %}"
-                       class="block px-3 py-2.5 rounded-xl text-xs font-medium transition {% if conv.id == active_conversation.id %}bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold shadow-sm{% else %}text-slate-600 hover:bg-slate-50 border border-transparent{% endif %}">
-                        <div class="truncate">{{ conv.title }}</div>
-                        <div class="text-[10px] text-slate-400 mt-0.5">{{ conv.created_at|date:"M d, Y • H:i" }}</div>
+                       class="block px-3 py-2.5 rounded-xl text-xs font-medium transition {% if conv.id == active_conversation.id %}bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 font-semibold shadow-sm{% else %}text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] border border-transparent{% endif %}">
+                        <div class="truncate text-xs">{{ conv.title }}</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1 flex items-center gap-1">
+                            <i data-lucide="clock" class="w-2.5 h-2.5"></i>
+                            <span>{{ conv.created_at|date:"M d, Y • H:i" }}</span>
+                        </div>
                     </a>
                     {% empty %}
-                    <p class="text-xs text-slate-400 italic py-2 text-center">No conversation history yet.</p>
+                    <div class="text-xs text-[var(--text-muted)] italic py-6 text-center">
+                        <i data-lucide="inbox" class="w-6 h-6 mx-auto mb-1 opacity-40"></i>
+                        No conversations yet
+                    </div>
                     {% endfor %}
                 </div>
             </div>
 
             <!-- Guardrails Card -->
-            <div class="bg-gradient-to-br from-slate-50 to-indigo-50/40 rounded-2xl border border-indigo-100 p-4 text-xs text-slate-600 space-y-2">
-                <div class="font-bold text-slate-800 flex items-center gap-1.5">
-                    <span>🛡️</span> Financial Integrity Mandates
+            <div class="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] p-4 text-xs text-[var(--text-secondary)] space-y-2">
+                <div class="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-indigo-500"></i>
+                    <span>Financial Safety Mandate</span>
                 </div>
-                <p class="text-[11px] leading-relaxed text-slate-500">
-                    HomePilot AI uses controlled Python tool calls to query live PostgreSQL records. The model cannot execute arbitrary SQL or hallucinate financial numbers.
+                <p class="text-[11px] leading-relaxed text-[var(--text-muted)]">
+                    HomePilot AI queries live PostgreSQL records strictly via isolated, auditable read-only tool calls. Zero SQL injection or synthetic hallucinations.
                 </p>
-                <div class="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400">
-                    <strong>Active Tools:</strong> Upcoming bills, Overdue analysis, Household spending, Category history, Provider trend, Payment summary, Recurring commitments.
+                <div class="pt-2 border-t border-[var(--border-color)] text-[10px] text-[var(--text-muted)] flex flex-wrap gap-1">
+                    <span class="bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">Upcoming bills</span>
+                    <span class="bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">Overdue</span>
+                    <span class="bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">Spend summary</span>
+                    <span class="bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">Subscriptions</span>
                 </div>
             </div>
         </div>
 
         <!-- Right: Active Chat Area -->
-        <div class="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[650px]">
+        <div class="lg:col-span-3 bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col h-[650px] overflow-hidden">
             
             <!-- Chat Header -->
-            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60 rounded-t-2xl">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-900">{{ active_conversation.title }}</h2>
-                    <p class="text-[11px] text-slate-500">Tenant: {{ household.name }} • User: {{ user.display_name }}</p>
+            <div class="px-6 py-3.5 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-secondary)]/50">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
+                    <div class="min-w-0">
+                        <h2 class="text-sm font-bold text-[var(--text-primary)] truncate">{{ active_conversation.title }}</h2>
+                        <p class="text-[11px] text-[var(--text-muted)] truncate">{{ household.name }} &bull; {{ user.display_name }}</p>
+                    </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs text-slate-400">{{ chat_messages.count }} messages</span>
+                <div class="flex items-center gap-3 shrink-0">
+                    <span class="text-xs text-[var(--text-muted)] hidden sm:inline">{{ chat_messages.count }} messages</span>
                     {% if active_conversation %}
                     <form method="POST" action="{% url 'dashboard_web:ai-assistant-delete' active_conversation.id %}" onsubmit="return confirm('Are you sure you want to delete this conversation thread? This cannot be undone.');">
                         {% csrf_token %}
-                        <button type="submit" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-lg transition" title="Delete this conversation thread">
-                            <span>🗑️ Delete</span>
+                        <button type="submit" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border border-rose-500/20 rounded-lg transition" title="Delete thread">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            <span class="hidden sm:inline">Delete</span>
                         </button>
                     </form>
                     {% endif %}
@@ -97,13 +122,13 @@
                 {% if not chat_messages %}
                 <!-- Empty State Prompt -->
                 <div class="text-center py-12 px-4 space-y-4 max-w-md mx-auto">
-                    <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-inner">
-                        💬
+                    <div class="w-14 h-14 bg-indigo-500/10 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto border border-indigo-500/20">
+                        <i data-lucide="sparkles" class="w-7 h-7"></i>
                     </div>
                     <div>
-                        <h3 class="text-base font-bold text-slate-800">How can I help you today?</h3>
-                        <p class="text-xs text-slate-500 mt-1">
-                            Ask questions about upcoming due dates, category costs, overdue liabilities, or monthly trends.
+                        <h3 class="text-base font-bold text-[var(--text-primary)]">How can I assist your household?</h3>
+                        <p class="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                            Ask about upcoming obligations, monthly budget trends, highest expense categories, or specific bill details.
                         </p>
                     </div>
                 </div>
@@ -115,26 +140,31 @@
                     <div class="flex justify-end">
                         <div class="max-w-[80%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm text-sm">
                             <p class="whitespace-pre-wrap leading-relaxed">{{ msg.content }}</p>
-                            <span class="block text-[10px] text-indigo-200 mt-1 text-right">{{ msg.created_at|date:"H:i" }}</span>
+                            <span class="block text-[10px] text-indigo-200 mt-1.5 text-right">{{ msg.created_at|date:"H:i" }}</span>
                         </div>
                     </div>
                     {% else %}
                     <!-- Assistant Message Bubble -->
                     <div class="flex justify-start items-start gap-3">
-                        <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-sm shrink-0 border border-indigo-200 mt-0.5">
-                            🤖
+                        <div class="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0 border border-indigo-500/20 mt-0.5">
+                            <i data-lucide="bot" class="w-4 h-4"></i>
                         </div>
-                        <div class="max-w-[85%] bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm text-sm space-y-3">
+                        <div class="max-w-[85%] bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm text-sm space-y-3">
                             <!-- Tool Execution Badges -->
                             {% if msg.tool_executions.all %}
-                            <div class="flex flex-wrap gap-1.5 pb-2 border-b border-slate-200/80">
+                            <div class="flex flex-wrap gap-1.5 pb-2.5 border-b border-[var(--border-color)]">
                                 {% for te in msg.tool_executions.all %}
-                                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium {% if te.is_success %}bg-emerald-50 text-emerald-700 border border-emerald-200{% else %}bg-rose-50 text-rose-700 border border-rose-200{% endif %}">
-                                    <span>⚙️ {{ te.tool_name }}</span>
+                                <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-mono font-medium {% if te.is_success %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20{% else %}bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20{% endif %}">
+                                    <i data-lucide="cpu" class="w-3 h-3"></i>
+                                    <span>{{ te.tool_name }}</span>
                                     {% if te.is_success %}
-                                    <span class="text-[9px] text-emerald-600 uppercase font-bold">✓ Executed</span>
+                                    <span class="text-[9px] uppercase font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                        <i data-lucide="check" class="w-2.5 h-2.5"></i> OK
+                                    </span>
                                     {% else %}
-                                    <span class="text-[9px] text-rose-600 uppercase font-bold">✗ Failed</span>
+                                    <span class="text-[9px] uppercase font-bold text-rose-600 dark:text-rose-400 flex items-center gap-0.5">
+                                        <i data-lucide="x" class="w-2.5 h-2.5"></i> ERR
+                                    </span>
                                     {% endif %}
                                 </div>
                                 {% endfor %}
@@ -142,10 +172,10 @@
                             {% endif %}
 
                             <!-- Prose Content -->
-                            <div class="prose prose-sm max-w-none prose-slate text-sm leading-relaxed">
+                            <div class="prose prose-sm max-w-none text-[var(--text-primary)] dark:prose-invert text-sm leading-relaxed">
                                 {{ msg.content|render_markdown }}
                             </div>
-                            <span class="block text-[10px] text-slate-400 mt-1">{{ msg.created_at|date:"H:i" }}</span>
+                            <span class="block text-[10px] text-[var(--text-muted)] mt-1">{{ msg.created_at|date:"H:i" }}</span>
                         </div>
                     </div>
                     {% endif %}
@@ -153,36 +183,39 @@
             </div>
 
             <!-- Quick Suggestion Chips -->
-            <div class="px-6 py-2 bg-slate-50/70 border-t border-slate-100 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
-                <span class="text-slate-400 font-medium text-[11px] shrink-0">Try asking:</span>
-                <button type="button" onclick="sendSuggestion('Show my upcoming bills')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+            <div class="px-6 py-2.5 bg-[var(--bg-secondary)]/60 border-t border-[var(--border-color)] flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
+                <span class="text-[var(--text-muted)] font-medium text-[11px] shrink-0 flex items-center gap-1">
+                    <i data-lucide="sparkles" class="w-3 h-3 text-indigo-500"></i>
+                    <span>Quick prompts:</span>
+                </span>
+                <button type="button" onclick="sendSuggestion('Show my upcoming bills')" class="shrink-0 bg-[var(--bg-card)] hover:bg-indigo-500/10 hover:text-indigo-500 text-[var(--text-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full text-[11px] transition shadow-xs">
                     📅 Upcoming bills
                 </button>
-                <button type="button" onclick="sendSuggestion('Which bills are overdue?')" class="shrink-0 bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                <button type="button" onclick="sendSuggestion('Which bills are overdue?')" class="shrink-0 bg-[var(--bg-card)] hover:bg-rose-500/10 hover:text-rose-500 text-[var(--text-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full text-[11px] transition shadow-xs">
                     ⚠️ Overdue bills
                 </button>
-                <button type="button" onclick="sendSuggestion('Summarize this month\'s household expenses')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
-                    📊 This month's summary
+                <button type="button" onclick="sendSuggestion('Summarize this month\'s household expenses')" class="shrink-0 bg-[var(--bg-card)] hover:bg-indigo-500/10 hover:text-indigo-500 text-[var(--text-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full text-[11px] transition shadow-xs">
+                    📊 Monthly summary
                 </button>
-                <button type="button" onclick="sendSuggestion('How much did we spend on electricity last month?')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                <button type="button" onclick="sendSuggestion('How much did we spend on electricity last month?')" class="shrink-0 bg-[var(--bg-card)] hover:bg-indigo-500/10 hover:text-indigo-500 text-[var(--text-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full text-[11px] transition shadow-xs">
                     ⚡ Electricity spend
                 </button>
-                <button type="button" onclick="sendSuggestion('What are our recurring subscriptions?')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
-                    🔁 Recurring bills
+                <button type="button" onclick="sendSuggestion('What are our recurring subscriptions?')" class="shrink-0 bg-[var(--bg-card)] hover:bg-indigo-500/10 hover:text-indigo-500 text-[var(--text-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full text-[11px] transition shadow-xs">
+                    🔁 Recurring subscriptions
                 </button>
-                <button type="button" onclick="sendSuggestion('Show recent payments summary')" class="shrink-0 bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 px-3 py-1 rounded-full text-[11px] transition shadow-2xs">
+                <button type="button" onclick="sendSuggestion('Show recent payments summary')" class="shrink-0 bg-[var(--bg-card)] hover:bg-indigo-500/10 hover:text-indigo-500 text-[var(--text-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full text-[11px] transition shadow-xs">
                     💳 Payment summary
                 </button>
             </div>
 
             <!-- Chat Input Bar -->
-            <div class="p-4 border-t border-slate-200 bg-white rounded-b-2xl">
-                <div id="ai-loading-indicator" class="hidden mb-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2.5 text-xs text-indigo-700">
-                    <svg class="animate-spin h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div class="p-4 border-t border-[var(--border-color)] bg-[var(--bg-card)]">
+                <div id="ai-loading-indicator" class="hidden mb-3 p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center gap-2.5 text-xs text-indigo-600 dark:text-indigo-400">
+                    <svg class="animate-spin h-4 w-4 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                     </svg>
-                    <span class="font-medium">Analyzing household financial records and executing verified tools...</span>
+                    <span class="font-medium">Querying verified household records and executing safe tools...</span>
                 </div>
                 <form id="chat-form" method="POST" action="{% url 'dashboard_web:ai-assistant-send' active_conversation.id %}" class="flex items-center gap-3" onsubmit="showLoading();">
                     {% csrf_token %}
@@ -191,15 +224,13 @@
                            name="prompt"
                            required
                            autocomplete="off"
-                           placeholder="Ask HomePilot AI anything about your household bills..."
-                           class="flex-grow px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-inner">
+                           placeholder="Ask HomePilot AI anything about household bills, payments, or trends..."
+                           class="flex-grow px-4 py-3 bg-[var(--bg-input)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition">
                     <button type="submit"
                             id="send-button"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-sm shrink-0">
+                            class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold px-5 py-3 rounded-xl transition flex items-center gap-2 shadow-sm shrink-0">
                         <span>Send</span>
-                        <svg class="w-4 h-4 fill-current rotate-90" viewBox="0 0 20 20">
-                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-                        </svg>
+                        <i data-lucide="send" class="w-4 h-4"></i>
                     </button>
                 </form>
             </div>
@@ -208,14 +239,16 @@
 </div>
 
 <script>
-    // Auto-scroll chat to latest message
     function scrollToBottom() {
         const container = document.getElementById('chat-messages-container');
         if (container) {
             container.scrollTop = container.scrollHeight;
         }
     }
-    window.addEventListener('load', scrollToBottom);
+    window.addEventListener('load', () => {
+        scrollToBottom();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
 
     function showLoading() {
         const indicator = document.getElementById('ai-loading-indicator');
@@ -227,7 +260,6 @@
         }
     }
 
-    // Quick suggestion chip handler
     function sendSuggestion(text) {
         const input = document.getElementById('prompt-input');
         const form = document.getElementById('chat-form');

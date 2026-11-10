@@ -5,37 +5,45 @@
 {% block content %}
 <div class="space-y-6">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[var(--border-color)]">
         <div>
-            <h1 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <span>🛡️</span> Household Audit Trail
-            </h1>
-            <p class="text-sm text-slate-500 mt-1">
-                Immutable, tenant-isolated compliance log for <strong>{{ household.name }}</strong>. All billing, payment reversals, document analyses, and security operations are recorded.
-            </p>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 shadow-sm shrink-0">
+                    <i data-lucide="shield" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Household Audit Trail</h1>
+                    <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-0.5">
+                        Immutable, tenant-isolated compliance log for <strong class="text-[var(--text-primary)]">{{ household.name }}</strong>.
+                    </p>
+                </div>
+            </div>
         </div>
         <div class="flex items-center gap-2">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Audit Active & Tamper-Resistant
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Audit Active & Tamper-Resistant</span>
             </span>
         </div>
     </div>
 
     <!-- Security Guarantee Alert -->
-    <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-xs text-indigo-900 flex items-start gap-3">
-        <span class="text-lg">🔒</span>
+    <div class="bg-[var(--bg-card)] border border-indigo-500/20 rounded-2xl p-4 text-xs text-[var(--text-secondary)] flex items-start gap-3 shadow-sm">
+        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+        </div>
         <div>
-            <strong class="font-bold">Zero-Knowledge Credential Redaction:</strong>
+            <strong class="font-bold text-[var(--text-primary)]">Zero-Knowledge Credential Redaction:</strong>
             Passphrase tokens, payment API secrets, and raw authentication credentials are automatically masked into <code>******</code> prior to storage. Events cannot be deleted or purged by non-root users.
         </div>
     </div>
 
     <!-- Filter Toolbar -->
-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+    <div class="bg-[var(--bg-card)] p-4 sm:p-5 rounded-2xl shadow-sm border border-[var(--border-color)]">
         <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
             <div>
-                <label for="action" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Action</label>
-                <select id="action" name="action" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <label for="action" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Action</label>
+                <select id="action" name="action" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:outline-none transition">
                     <option value="">All Actions</option>
                     {% for key, label in actions %}
                     <option value="{{ key }}" {% if selected_action == key %}selected{% endif %}>{{ label }}</option>
@@ -43,8 +51,8 @@
                 </select>
             </div>
             <div>
-                <label for="actor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Actor</label>
-                <select id="actor" name="actor" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <label for="actor" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Actor</label>
+                <select id="actor" name="actor" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:outline-none transition">
                     <option value="">All Household Members</option>
                     {% for m in members %}
                     <option value="{{ m.id }}" {% if selected_actor == m.id|stringformat:"s" %}selected{% endif %}>{{ m.display_name }} (@{{ m.username }})</option>
@@ -52,8 +60,8 @@
                 </select>
             </div>
             <div>
-                <label for="entity_type" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Entity Type</label>
-                <select id="entity_type" name="entity_type" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <label for="entity_type" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Entity Type</label>
+                <select id="entity_type" name="entity_type" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:outline-none transition">
                     <option value="">All Entities</option>
                     {% for et in entity_types %}
                     <option value="{{ et }}" {% if selected_entity == et %}selected{% endif %}>{{ et }}</option>
@@ -61,20 +69,21 @@
                 </select>
             </div>
             <div>
-                <label for="date_from" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">From Date</label>
-                <input type="date" id="date_from" name="date_from" value="{{ selected_date_from }}" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <label for="date_from" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">From Date</label>
+                <input type="date" id="date_from" name="date_from" value="{{ selected_date_from }}" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:outline-none transition">
             </div>
             <div class="flex items-center gap-2">
                 <div class="flex-grow">
-                    <label for="date_to" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">To Date</label>
-                    <input type="date" id="date_to" name="date_to" value="{{ selected_date_to }}" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <label for="date_to" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">To Date</label>
+                    <input type="date" id="date_to" name="date_to" value="{{ selected_date_to }}" class="w-full bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 focus:outline-none transition">
                 </div>
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm mt-4">
-                    Filter
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition shadow-sm mt-5 flex items-center gap-1">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    <span>Filter</span>
                 </button>
                 {% if selected_action or selected_actor or selected_entity or selected_date_from or selected_date_to %}
-                <a href="{% url 'dashboard_web:audit-log' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs px-2.5 py-2 rounded-lg transition mt-4" title="Reset Filters">
-                    ✕
+                <a href="{% url 'dashboard_web:audit-log' %}" class="bg-[var(--bg-secondary)] hover:bg-[var(--border-color)] text-[var(--text-secondary)] font-medium text-xs px-2.5 py-2 rounded-xl transition mt-5 border border-[var(--border-color)]" title="Reset Filters">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
                 </a>
                 {% endif %}
             </div>
@@ -82,11 +91,11 @@
     </div>
 
     <!-- Audit Events Table -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] overflow-hidden">
         {% if events %}
         <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm text-slate-600">
-                <thead class="bg-slate-50 text-slate-500 uppercase font-semibold text-xs border-b border-slate-200">
+            <table class="w-full text-left text-sm text-[var(--text-secondary)]">
+                <thead class="bg-[var(--bg-secondary)] text-[var(--text-muted)] uppercase font-semibold text-xs border-b border-[var(--border-color)]">
                     <tr>
                         <th class="px-5 py-3.5">Timestamp</th>
                         <th class="px-5 py-3.5">Action</th>
@@ -96,73 +105,73 @@
                         <th class="px-5 py-3.5">Details</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-[var(--border-color)]">
                     {% for event in events %}
-                    <tr class="hover:bg-slate-50/70 transition">
-                        <td class="px-5 py-4 whitespace-nowrap text-xs text-slate-500 font-mono">
+                    <tr class="hover:bg-[var(--bg-secondary)]/50 transition">
+                        <td class="px-5 py-4 whitespace-nowrap text-xs text-[var(--text-muted)] font-mono">
                             {{ event.created_at|date:"M d, Y H:i:s" }}
                         </td>
                         <td class="px-5 py-4 whitespace-nowrap">
                             {% if "PAID" in event.action or "COMPLETED" in event.action %}
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                                     {{ event.get_action_display }}
                                 </span>
                             {% elif "REVERSED" in event.action or "VOIDED" in event.action or "DELETED" in event.action or "FAILED" in event.action %}
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-100 text-rose-800">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                                     {{ event.get_action_display }}
                                 </span>
                             {% elif "ADJUSTED" in event.action or "UPDATED" in event.action or "CHANGED" in event.action %}
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-100 text-amber-800">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                                     {{ event.get_action_display }}
                                 </span>
                             {% elif "TOOL" in event.action %}
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-100 text-purple-800">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                                     {{ event.get_action_display }}
                                 </span>
                             {% elif "REMINDER" in event.action or "NOTIFICATION" in event.action %}
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-sky-100 text-sky-800">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                                     {{ event.get_action_display }}
                                 </span>
                             {% else %}
-                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-100 text-indigo-800">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                                     {{ event.get_action_display }}
                                 </span>
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 whitespace-nowrap text-xs">
                             {% if event.actor %}
-                                <span class="font-medium text-slate-900">{{ event.actor.display_name }}</span>
-                                <span class="text-slate-400">(@{{ event.actor.username }})</span>
+                                <span class="font-medium text-[var(--text-primary)]">{{ event.actor.display_name }}</span>
+                                <span class="text-[var(--text-muted)]">(@{{ event.actor.username }})</span>
                             {% else %}
-                                <span class="inline-flex items-center gap-1 text-slate-500 font-mono italic">
+                                <span class="inline-flex items-center gap-1 text-[var(--text-muted)] font-mono italic">
                                     ⚙️ Automated Worker
                                 </span>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-4 whitespace-nowrap text-xs font-mono text-slate-700">
+                        <td class="px-5 py-4 whitespace-nowrap text-xs font-mono text-[var(--text-primary)]">
                             {% if event.entity_type %}
-                                <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-800 font-semibold">{{ event.entity_type }}</span>
+                                <span class="bg-[var(--bg-secondary)] border border-[var(--border-color)] px-2 py-0.5 rounded text-[var(--text-primary)] font-semibold">{{ event.entity_type }}</span>
                                 {% if event.entity_id %}#{{ event.entity_id }}{% endif %}
                             {% else %}
-                                <span class="text-slate-400">-</span>
+                                <span class="text-[var(--text-muted)]">-</span>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-4 text-xs text-slate-800 max-w-md">
+                        <td class="px-5 py-4 text-xs text-[var(--text-primary)] max-w-md">
                             {{ event.description }}
                         </td>
                         <td class="px-5 py-4 whitespace-nowrap text-xs">
                             {% if event.metadata %}
                             <details class="group cursor-pointer">
-                                <summary class="text-indigo-600 hover:text-indigo-800 font-medium list-none select-none flex items-center gap-1">
+                                <summary class="text-indigo-500 hover:text-indigo-400 font-medium list-none select-none flex items-center gap-1">
                                     <span>Payload</span>
-                                    <span class="group-open:rotate-180 transition-transform">▾</span>
+                                    <i data-lucide="chevron-down" class="w-3 h-3 group-open:rotate-180 transition-transform"></i>
                                 </summary>
-                                <div class="mt-2 p-2 bg-slate-900 text-emerald-400 rounded-lg text-[11px] font-mono whitespace-pre-wrap max-w-xs overflow-x-auto shadow-inner">
+                                <div class="mt-2 p-3 bg-slate-950 text-emerald-400 rounded-xl text-[11px] font-mono whitespace-pre-wrap max-w-xs overflow-x-auto shadow-inner border border-slate-800">
 {{ event.metadata|pprint }}
                                 </div>
                             </details>
                             {% else %}
-                            <span class="text-slate-400">-</span>
+                            <span class="text-[var(--text-muted)]">-</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -170,18 +179,18 @@
                 </tbody>
             </table>
             {% if page_obj.has_other_pages %}
-            <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+            <div class="px-5 py-3.5 bg-[var(--bg-secondary)] border-t border-[var(--border-color)] flex items-center justify-between text-xs text-[var(--text-secondary)]">
                 <div>
                     Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} events total)
                 </div>
                 <div class="flex items-center gap-1">
                     {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_actor %}&actor={{ selected_actor }}{% endif %}{% if selected_entity %}&entity_type={{ selected_entity }}{% endif %}{% if selected_date_from %}&date_from={{ selected_date_from }}{% endif %}{% if selected_date_to %}&date_to={{ selected_date_to }}{% endif %}" class="px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 transition">
+                    <a href="?page={{ page_obj.previous_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_actor %}&actor={{ selected_actor }}{% endif %}{% if selected_entity %}&entity_type={{ selected_entity }}{% endif %}{% if selected_date_from %}&date_from={{ selected_date_from }}{% endif %}{% if selected_date_to %}&date_to={{ selected_date_to }}{% endif %}" class="px-2.5 py-1 bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition">
                         &larr; Previous
                     </a>
                     {% endif %}
                     {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_actor %}&actor={{ selected_actor }}{% endif %}{% if selected_entity %}&entity_type={{ selected_entity }}{% endif %}{% if selected_date_from %}&date_from={{ selected_date_from }}{% endif %}{% if selected_date_to %}&date_to={{ selected_date_to }}{% endif %}" class="px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 transition">
+                    <a href="?page={{ page_obj.next_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_actor %}&actor={{ selected_actor }}{% endif %}{% if selected_entity %}&entity_type={{ selected_entity }}{% endif %}{% if selected_date_from %}&date_from={{ selected_date_from }}{% endif %}{% if selected_date_to %}&date_to={{ selected_date_to }}{% endif %}" class="px-2.5 py-1 bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition">
                         Next &rarr;
                     </a>
                     {% endif %}
@@ -190,10 +199,10 @@
             {% endif %}
         </div>
         {% else %}
-        <div class="p-12 text-center text-slate-400">
-            <span class="text-4xl block mb-2">📜</span>
-            <p class="font-semibold text-slate-600">No audit events found.</p>
-            <p class="text-xs text-slate-400 mt-1">When family members record payments, upload documents, or receive notifications, events will appear here.</p>
+        <div class="p-12 text-center text-[var(--text-muted)]">
+            <i data-lucide="shield" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+            <p class="font-semibold text-[var(--text-primary)]">No audit events found.</p>
+            <p class="text-xs text-[var(--text-muted)] mt-1">When family members record payments, upload documents, or receive notifications, events will appear here.</p>
         </div>
         {% endif %}
     </div>

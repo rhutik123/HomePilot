@@ -1,74 +1,901 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}HomePilot - Household Bill Manager{% endblock %}</title>
-    <!-- Tailwind CSS CDN for instant, zero-build responsive UI -->
+    <title>{% block title %}HomePilot — Modern Household Finance SaaS{% endblock %}</title>
+
+    <!-- Google Fonts: Inter & Plus Jakarta Sans for Premium Fintech SaaS Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Early Theme Initializer (Prevents FOUC - Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            function getThemeCookie() {
+                var name = "homepilot_theme=";
+                var decodedCookie = decodeURIComponent(document.cookie);
+                var ca = decodedCookie.split(';');
+                for(var i = 0; i < ca.length; i++) {
+                    var c = ca[i].trim();
+                    if (c.indexOf(name) === 0) {
+                        return c.substring(name.length, c.length);
+                    }
+                }
+                return null;
+            }
+            var savedTheme = getThemeCookie() || "dark";
+            if (savedTheme === "light") {
+                document.documentElement.classList.remove("dark");
+                document.documentElement.classList.add("light");
+                document.documentElement.setAttribute("data-theme", "light");
+            } else {
+                document.documentElement.classList.remove("light");
+                document.documentElement.classList.add("dark");
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
+
+    <!-- Tailwind CSS CDN configured with class-based Dark Mode -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'Menlo', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#EEF2FF',
+                            100: '#E0E7FF',
+                            200: '#C7D2FE',
+                            300: '#A5B4FC',
+                            400: '#818CF8',
+                            500: '#6366F1',
+                            600: '#4F46E5',
+                            700: '#4338CA',
+                            800: '#3730A3',
+                            900: '#312E81',
+                            950: '#1E1B4B',
+                        },
+                        hp: {
+                            dark: '#0B0F19',
+                            darker: '#070A10',
+                            cardDark: '#121927',
+                            cardBorderDark: '#1E293B',
+                            hoverDark: '#1A2333',
+                            subtleDark: '#2D3748',
+                            textDark: '#F8FAFC',
+                            mutedDark: '#94A3B8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons for Consistent Commercial SaaS Iconography -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Semantic Theme Design Tokens & Global Component Styles -->
     <style>
+        :root, html.dark {
+            --bg-primary: #0B0F19;
+            --bg-secondary: #0F172A;
+            --bg-card: #121927;
+            --bg-card-hover: #172033;
+            --bg-sidebar: #0D1322;
+            --bg-input: #0B0F19;
+            --text-primary: #F8FAFC;
+            --text-secondary: #CBD5E1;
+            --text-muted: #94A3B8;
+            --border-color: #1E293B;
+            --border-subtle: #243048;
+            --accent-color: #6366F1;
+            --accent-hover: #4F46E5;
+            --accent-subtle: rgba(99, 102, 241, 0.12);
+            --success-color: #10B981;
+            --success-bg: rgba(16, 185, 129, 0.12);
+            --warning-color: #F59E0B;
+            --warning-bg: rgba(245, 158, 11, 0.12);
+            --danger-color: #F43F5E;
+            --danger-bg: rgba(244, 63, 94, 0.12);
+            --info-color: #06B6D4;
+            --info-bg: rgba(6, 182, 212, 0.12);
+            --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
+            --shadow-sidebar: 4px 0 24px rgba(0, 0, 0, 0.35);
+            color-scheme: dark;
+        }
+
+        html.light {
+            --bg-primary: #F8FAFC;
+            --bg-secondary: #F1F5F9;
+            --bg-card: #FFFFFF;
+            --bg-card-hover: #F8FAFC;
+            --bg-sidebar: #FFFFFF;
+            --bg-input: #FFFFFF;
+            --text-primary: #0F172A;
+            --text-secondary: #334155;
+            --text-muted: #475569;
+            --border-color: #CBD5E1;
+            --border-subtle: #E2E8F0;
+            --accent-color: #4338CA;
+            --accent-hover: #3730A3;
+            --accent-subtle: #EEF2FF;
+            --success-color: #047857;
+            --success-bg: #ECFDF5;
+            --warning-color: #B45309;
+            --warning-bg: #FFFBEB;
+            --danger-color: #BE123C;
+            --danger-bg: #FFF1F2;
+            --info-color: #0369A1;
+            --info-bg: #F0F9FF;
+            --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
+            --shadow-sidebar: 2px 0 8px 0 rgba(0, 0, 0, 0.04);
+            color-scheme: light;
+        }
+
+        /* ========================================================
+           LIGHT MODE VISIBILITY & CONTRAST ENHANCEMENTS
+           Strictly scoped to html.light. Dark mode is 100% untouched.
+           ======================================================== */
+        html.light input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+        html.light select,
+        html.light textarea {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+            border-color: #CBD5E1 !important;
+        }
+        html.light input::placeholder,
+        html.light textarea::placeholder {
+            color: #64748B !important;
+            opacity: 1 !important;
+        }
+        html.light select option {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+        }
+        html.light input:disabled,
+        html.light select:disabled,
+        html.light textarea:disabled,
+        html.light button:disabled {
+            background-color: #F1F5F9 !important;
+            color: #64748B !important;
+            border-color: #E2E8F0 !important;
+        }
+
+        /* Light-mode text contrast improvements for Tailwind grey & muted classes */
+        html.light .text-slate-500 {
+            color: #475569 !important;
+        }
+        html.light .text-slate-400:not(.bg-brand-600 *):not(.bg-rose-600 *):not(.bg-emerald-600 *):not(.bg-indigo-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *) {
+            color: #475569 !important;
+        }
+        html.light .text-slate-300:not(.bg-brand-600 *):not(.bg-rose-600 *):not(.bg-emerald-600 *):not(.bg-indigo-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *) {
+            color: #334155 !important;
+        }
+        html.light .text-slate-200:not(.bg-brand-600 *):not(.bg-rose-600 *):not(.bg-emerald-600 *):not(.bg-indigo-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *) {
+            color: #1E293B !important;
+        }
+
+        /* Light-mode semantic text colors for badges, numbers, and status indicators */
+        html.light .text-amber-400:not(.bg-amber-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *),
+        html.light .text-amber-500:not(.bg-amber-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *) {
+            color: #B45309 !important; /* amber-700: 5.9:1 */
+        }
+        html.light .text-amber-300:not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-slate-900"] *) {
+            color: #92400E !important; /* amber-800: 7.5:1 */
+        }
+        html.light .text-amber-200,
+        html.light .text-amber-200\/70,
+        html.light .text-amber-200\/80,
+        html.light .text-amber-200\/90 {
+            color: #78350F !important; /* amber-900: 9.8:1 */
+        }
+
+        html.light .text-emerald-400:not(.bg-emerald-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *),
+        html.light .text-emerald-500:not(.bg-emerald-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *) {
+            color: #047857 !important; /* emerald-700: 5.2:1 */
+        }
+        html.light .text-emerald-300:not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-slate-900"] *) {
+            color: #065F46 !important; /* emerald-800: 6.8:1 */
+        }
+
+        html.light .text-rose-400:not(.bg-rose-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *),
+        html.light .text-rose-500:not(.bg-rose-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *) {
+            color: #BE123C !important; /* rose-700: 5.4:1 */
+        }
+        html.light .text-rose-300:not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-slate-900"] *) {
+            color: #9F1239 !important; /* rose-800: 7.2:1 */
+        }
+        html.light .text-rose-200,
+        html.light .text-rose-200\/80 {
+            color: #881337 !important; /* rose-900: 9.2:1 */
+        }
+        html.light strong.text-rose-100,
+        html.light span.text-rose-100 {
+            color: #4C0519 !important; /* rose-950: 13.5:1 */
+        }
+
+        html.light .text-brand-500:not(.bg-indigo-600 *):not(.bg-brand-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *),
+        html.light .text-indigo-500:not(.bg-indigo-600 *):not(.bg-brand-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *),
+        html.light .text-brand-400:not(.bg-indigo-600 *):not(.bg-brand-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *),
+        html.light .text-indigo-400:not(.bg-indigo-600 *):not(.bg-brand-600 *):not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *) {
+            color: #4338CA !important; /* indigo-700: 6.8:1 */
+        }
+        html.light .text-brand-300:not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *),
+        html.light .text-indigo-300:not(.bg-slate-900 *):not(.bg-slate-950 *):not([class*="from-indigo-950"] *):not([class*="from-slate-900"] *) {
+            color: #3730A3 !important; /* indigo-800: 8.5:1 */
+        }
+        html.light .text-sky-400 {
+            color: #0369A1 !important; /* sky-700: 5.8:1 */
+        }
+        html.light .text-blue-400,
+        html.light .text-blue-500,
+        html.light .text-blue-600 {
+            color: #1D4ED8 !important; /* blue-700: 6.5:1 */
+        }
+        html.light .text-purple-400 {
+            color: #6D28D9 !important; /* purple-700: 6.1:1 */
+        }
+        html.light .text-teal-400 {
+            color: #0F766E !important; /* teal-700: 5.5:1 */
+        }
+
+        /* Light mode hover state for accent text and links */
+        html.light a.text-indigo-500:hover,
+        html.light button.text-indigo-500:hover,
+        html.light .hover\:text-indigo-400:hover,
+        html.light .hover\:text-indigo-500:hover {
+            color: #312E81 !important; /* indigo-900: 10.3:1 */
+        }
+
+        /* Light-mode Navigation items in Desktop Sidebar & Mobile Drawer */
+        html.light .nav-item:not(.bg-brand-600) {
+            color: #334155;
+        }
+        html.light .nav-item:not(.bg-brand-600):hover {
+            color: #0F172A !important;
+            background-color: #F1F5F9 !important;
+        }
+        html.light .nav-item:not(.bg-brand-600) i {
+            color: #475569;
+        }
+        html.light .nav-item:not(.bg-brand-600):hover i {
+            color: #0F172A;
+        }
+        html.light .nav-label {
+            color: #475569;
+        }
+        html.light .theme-label {
+            color: #334155;
+        }
+
+        /* Light-mode Tooltip */
+        html.light .sidebar-tooltip {
+            background-color: #0F172A;
+            color: #F8FAFC;
+            border-color: #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Light-mode Badges & Tinted Containers */
+        html.light .bg-amber-400\/10,
+        html.light .bg-amber-500\/10 {
+            background-color: #FEF3C7 !important;
+        }
+        html.light .border-amber-400\/20,
+        html.light .border-amber-500\/20,
+        html.light .border-amber-500\/30 {
+            border-color: #FDE68A !important;
+        }
+        html.light .bg-emerald-400\/10,
+        html.light .bg-emerald-500\/10 {
+            background-color: #D1FAE5 !important;
+        }
+        html.light .border-emerald-400\/20,
+        html.light .border-emerald-500\/20,
+        html.light .border-emerald-500\/30 {
+            border-color: #A7F3D0 !important;
+        }
+        html.light .bg-rose-400\/10,
+        html.light .bg-rose-500\/10 {
+            background-color: #FFE4E6 !important;
+        }
+        html.light .border-rose-400\/20,
+        html.light .border-rose-500\/20,
+        html.light .border-rose-500\/30 {
+            border-color: #FECDD3 !important;
+        }
+        html.light .bg-brand-400\/10,
+        html.light .bg-brand-500\/10,
+        html.light .bg-indigo-500\/10 {
+            background-color: #EEF2FF !important;
+        }
+        html.light .bg-indigo-500\/20,
+        html.light .bg-indigo-500\/30 {
+            background-color: #E0E7FF !important;
+        }
+        html.light .border-brand-400\/20,
+        html.light .border-brand-500\/20,
+        html.light .border-brand-500\/30,
+        html.light .border-indigo-500\/20 {
+            border-color: #C7D2FE !important;
+        }
+        html.light .border-indigo-500\/30 {
+            border-color: #A5B4FC !important;
+        }
+        html.light .bg-blue-500\/10 {
+            background-color: #EFF6FF !important;
+        }
+        html.light .border-blue-500\/20,
+        html.light .border-blue-500\/30 {
+            border-color: #BFDBFE !important;
+        }
+        html.light .bg-sky-500\/10 {
+            background-color: #E0F2FE !important;
+        }
+        html.light .border-sky-500\/20,
+        html.light .border-sky-500\/30 {
+            border-color: #BAE6FD !important;
+        }
+        html.light .bg-purple-500\/10 {
+            background-color: #F3E8FF !important;
+        }
+        html.light .border-purple-500\/20,
+        html.light .border-purple-500\/30 {
+            border-color: #E9D5FF !important;
+        }
+
+        /* Light-mode Code & Audit Payload Containers */
+        html.light details pre,
+        html.light details div.bg-slate-950 {
+            background-color: #F8FAFC !important;
+            color: #0F172A !important;
+            border-color: #CBD5E1 !important;
+        }
+
+        /* Light-mode Table headers & rows */
+        html.light thead {
+            background-color: #F1F5F9 !important;
+            color: #334155 !important;
+        }
+        html.light thead th {
+            color: #334155 !important;
+        }
+        html.light tbody tr:hover {
+            background-color: #F8FAFC !important;
+        }
+
+        /* Light-mode Banner Card adjustments */
+        html.light [style*="var(--danger-bg)"] {
+            background-color: #FFF1F2 !important;
+            border-color: #FECDD3 !important;
+        }
+        html.light [style*="var(--warning-bg)"] {
+            background-color: #FFFBEB !important;
+            border-color: #FDE68A !important;
+        }
+        html.light [style*="var(--accent-subtle)"] {
+            background-color: #EEF2FF !important;
+            border-color: #C7D2FE !important;
+        }
+        html.light [style*="var(--success-bg)"] {
+            background-color: #ECFDF5 !important;
+            border-color: #A7F3D0 !important;
+        }
+
+        /* Light-mode Notification flash messages */
+        html.light .bg-rose-500\/10.text-rose-300 {
+            background-color: #FFF1F2 !important;
+            border-color: #FECDD3 !important;
+            color: #9F1239 !important;
+        }
+        html.light .bg-emerald-500\/10.text-emerald-300 {
+            background-color: #ECFDF5 !important;
+            border-color: #A7F3D0 !important;
+            color: #065F46 !important;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        /* Custom Scrollbar for Sleek Fintech Aesthetic */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Tooltip styling for collapsed sidebar */
+        .sidebar-tooltip {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 0.75rem;
+            padding: 0.35rem 0.65rem;
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+            transition: opacity 0.15s ease, visibility 0.15s ease;
+            z-index: 60;
+        }
+        .sidebar-collapsed .nav-item:hover .sidebar-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .sidebar-collapsed .nav-label,
+        .sidebar-collapsed .brand-name,
+        .sidebar-collapsed .user-info,
+        .sidebar-collapsed .household-badge {
+            display: none !important;
+        }
+
+        /* Smooth UI Micro-interactions */
+        .btn-press:active {
+            transform: scale(0.98);
+        }
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
-    <!-- Navbar -->
-    <nav class="bg-indigo-600 text-white shadow-md sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center space-x-3">
-                    <a href="{% url 'dashboard_web:dashboard' %}" class="flex items-center space-x-2">
-                        <span class="text-2xl font-black tracking-tight">🏠 HomePilot</span>
-                    </a>
-                    {% if user.is_authenticated %}
-                    <div class="hidden md:flex ml-10 space-x-4">
-                        <a href="{% url 'dashboard_web:dashboard' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">Dashboard</a>
-                        <a href="{% url 'dashboard_web:bills-list' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">All Bills</a>
-                        <a href="{% url 'dashboard_web:bill-upload' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">+ Add Bill</a>
-                        <a href="{% url 'dashboard_web:recurring-list' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">Recurring Bills</a>
-                        <a href="{% url 'dashboard_web:spending-insights' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">✨ Insights</a>
-                        <a href="{% url 'dashboard_web:reports' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">📊 Reports</a>
-                        <a href="{% url 'dashboard_web:ai-assistant' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">🤖 Assistant</a>
-                        <a href="{% url 'dashboard_web:notifications-inbox' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">🔔 Alerts</a>
-                        <a href="{% url 'dashboard_web:audit-log' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition flex items-center gap-1">🛡️ Audit</a>
-                        <a href="{% url 'dashboard_web:household' %}" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition">Family Household</a>
-                    </div>
-                    {% endif %}
+<body class="flex flex-col min-h-screen antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- DESKTOP COLLAPSIBLE SIDEBAR (Fixed Left, lg:flex) -->
+    <aside id="desktop-sidebar"
+           class="hidden lg:flex fixed top-0 bottom-0 left-0 z-40 flex-col w-64 border-r transition-all duration-300 ease-in-out"
+           style="background-color: var(--bg-sidebar); border-color: var(--border-color); box-shadow: var(--shadow-sidebar);">
+        
+        <!-- Sidebar Header: Brand & Logo -->
+        <div class="h-16 flex items-center justify-between px-5 border-b" style="border-color: var(--border-color);">
+            <a href="{% url 'dashboard_web:dashboard' %}" class="flex items-center gap-3 group">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-tr from-brand-600 to-indigo-500 text-white font-black text-lg shadow-md shadow-brand-500/20 group-hover:scale-105 transition">
+                    ⚡
                 </div>
-                <div class="flex items-center space-x-4">
-                    {% if user.is_authenticated %}
-                        <span class="text-sm text-indigo-100 hidden sm:inline">Signed in as <strong>{{ user.display_name }}</strong></span>
-                        <form method="POST" action="{% url 'dashboard_web:logout' %}" class="inline">
-                            {% csrf_token %}
-                            <button type="submit" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs uppercase tracking-wider font-semibold px-3 py-1.5 rounded-lg transition">Sign Out</button>
-                        </form>
-                    {% else %}
-                        <a href="{% url 'dashboard_web:login' %}" class="text-indigo-100 hover:text-white text-sm font-medium">Log In</a>
-                        <a href="{% url 'dashboard_web:register' %}" class="bg-white text-indigo-600 hover:bg-indigo-50 text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-sm">Register</a>
-                    {% endif %}
+                <div class="brand-name flex flex-col">
+                    <span class="font-extrabold text-base tracking-tight" style="color: var(--text-primary);">HomePilot</span>
+                    <span class="text-[10px] uppercase font-bold tracking-widest text-brand-500">Fintech Suite</span>
                 </div>
+            </a>
+            <button type="button" onclick="toggleSidebarCollapse()" title="Toggle sidebar width"
+                    class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition">
+                <i data-lucide="chevrons-left" id="collapse-icon" class="w-4 h-4 transition duration-200"></i>
+            </button>
+        </div>
+
+        <!-- Household Scope Indicator -->
+        {% if household %}
+        <div class="household-badge px-4 py-2.5 mx-3 my-2 rounded-xl border flex items-center gap-2.5 text-xs"
+             style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
+            <div class="truncate">
+                <span class="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block tracking-wider">Active Household</span>
+                <span class="font-bold truncate block" style="color: var(--text-primary);">{{ household.name }}</span>
             </div>
         </div>
-    </nav>
+        {% endif %}
 
-    <!-- Flash Messages -->
-    {% if messages %}
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 w-full">
-        {% for message in messages %}
-        <div class="p-4 mb-3 rounded-xl text-sm font-medium {% if message.tags == 'error' %}bg-rose-50 text-rose-800 border border-rose-200{% elif message.tags == 'success' %}bg-emerald-50 text-emerald-800 border border-emerald-200{% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
-            {{ message }}
+        <!-- Navigation Links Navigation Tree -->
+        <nav class="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+            {% url 'dashboard_web:dashboard' as nav_dash %}
+            {% url 'dashboard_web:bills-list' as nav_bills %}
+            {% url 'dashboard_web:bill-upload' as nav_upload %}
+            {% url 'dashboard_web:recurring-list' as nav_recur %}
+            {% url 'dashboard_web:spending-insights' as nav_insights %}
+            {% url 'dashboard_web:reports' as nav_reports %}
+            {% url 'dashboard_web:ai-assistant' as nav_ai %}
+            {% url 'dashboard_web:notifications-inbox' as nav_alerts %}
+            {% url 'dashboard_web:audit-log' as nav_audit %}
+            {% url 'dashboard_web:household' as nav_house %}
+
+            <!-- Core Section -->
+            <div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 nav-label">Financial Core</div>
+
+            <a href="{% url 'dashboard_web:dashboard' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if request.path == nav_dash %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Dashboard</span>
+                <span class="sidebar-tooltip">Dashboard</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:bills-list' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if request.path == nav_bills or '/bills/' in request.path and request.path != nav_upload %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="receipt" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">All Bills</span>
+                <span class="sidebar-tooltip">All Bills</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:bill-upload' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if request.path == nav_upload %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="plus-circle" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Add / Upload Bill</span>
+                <span class="sidebar-tooltip">Add / Upload Bill</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:recurring-list' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/recurring/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="repeat" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Recurring Bills</span>
+                <span class="sidebar-tooltip">Recurring Bills</span>
+            </a>
+
+            <!-- Intelligence Section -->
+            <div class="pt-3 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 nav-label">Intelligence & Analytics</div>
+
+            <a href="{% url 'dashboard_web:spending-insights' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/insights/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="sparkles" class="w-4 h-4 shrink-0 text-amber-500 dark:text-amber-400"></i>
+                <span class="nav-label truncate">Spending Insights</span>
+                <span class="sidebar-tooltip">Spending Insights</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:reports' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/reports/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Reports & Export</span>
+                <span class="sidebar-tooltip">Reports & Export</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:ai-assistant' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/assistant/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="bot" class="w-4 h-4 shrink-0 text-indigo-500 dark:text-indigo-400"></i>
+                <span class="nav-label truncate">AI Assistant</span>
+                <span class="sidebar-tooltip">AI Assistant</span>
+            </a>
+
+            <!-- Administration Section -->
+            <div class="pt-3 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 nav-label">Administration</div>
+
+            <a href="{% url 'dashboard_web:notifications-inbox' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/notifications/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="bell" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Alerts & Reminders</span>
+                <span class="sidebar-tooltip">Alerts & Reminders</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:audit-log' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/audit/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="shield-check" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Audit Trail</span>
+                <span class="sidebar-tooltip">Audit Trail</span>
+            </a>
+
+            <a href="{% url 'dashboard_web:household' %}"
+               class="nav-item relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition group {% if '/household/' in request.path %}bg-brand-600 text-white shadow-sm shadow-brand-600/30{% else %}text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/40{% endif %}">
+                <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+                <span class="nav-label truncate">Family Household</span>
+                <span class="sidebar-tooltip">Family Household</span>
+            </a>
+        </nav>
+
+        <!-- Sidebar Footer: Theme Toggle & User Profile -->
+        <div class="p-3 border-t space-y-2" style="border-color: var(--border-color);">
+            <!-- Theme Toggle Button -->
+            <button type="button" onclick="toggleTheme()"
+                    class="nav-item relative w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition hover:bg-slate-100 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300"
+                    title="Switch Light / Dark Theme">
+                <div class="flex items-center gap-2.5">
+                    <span id="theme-icon-container">
+                        <i data-lucide="moon" class="w-4 h-4 text-indigo-500 dark:text-indigo-400 theme-icon-dark"></i>
+                        <i data-lucide="sun" class="w-4 h-4 text-amber-500 dark:text-amber-400 theme-icon-light hidden"></i>
+                    </span>
+                    <span class="nav-label theme-label">Dark Mode</span>
+                </div>
+                <span class="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 nav-label px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800/60">Toggle</span>
+                <span class="sidebar-tooltip">Toggle Theme</span>
+            </button>
+
+            <!-- User Profile & Sign Out -->
+            {% if user.is_authenticated %}
+            <div class="flex items-center justify-between p-2 rounded-xl" style="background-color: var(--bg-secondary);">
+                <div class="user-info flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                        {{ user.first_name|default:user.username|slice:":1"|upper }}
+                    </div>
+                    <div class="min-w-0">
+                        <span class="font-bold text-xs block truncate" style="color: var(--text-primary);">{{ user.display_name }}</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate">@{{ user.username }}</span>
+                    </div>
+                </div>
+                <form method="POST" action="{% url 'dashboard_web:logout' %}" class="shrink-0">
+                    {% csrf_token %}
+                    <button type="submit" title="Sign out of HomePilot"
+                            class="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-2">
+                <a href="{% url 'dashboard_web:login' %}" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700">Login</a>
+                <a href="{% url 'dashboard_web:register' %}" class="flex-1 text-center py-2 text-xs font-semibold rounded-lg bg-brand-600 text-white hover:bg-brand-700">Register</a>
+            </div>
+            {% endif %}
         </div>
-        {% endfor %}
+    </aside>
+
+    <!-- MOBILE TOP BAR (Shown on screens < lg) -->
+    <header class="lg:hidden sticky top-0 z-40 flex items-center justify-between h-16 px-4 border-b backdrop-blur-md"
+            style="background-color: var(--bg-sidebar); border-color: var(--border-color);">
+        <a href="{% url 'dashboard_web:dashboard' %}" class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center bg-brand-600 text-white font-extrabold text-base shadow-sm">
+                ⚡
+            </div>
+            <span class="font-extrabold text-base tracking-tight" style="color: var(--text-primary);">HomePilot</span>
+        </a>
+        <div class="flex items-center gap-2">
+            <!-- Mobile Theme Toggle -->
+            <button type="button" onclick="toggleTheme()" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Toggle Theme">
+                <i data-lucide="moon" class="w-5 h-5 theme-icon-dark"></i>
+                <i data-lucide="sun" class="w-5 h-5 theme-icon-light hidden"></i>
+            </button>
+            <!-- Mobile Menu Drawer Toggle -->
+            <button type="button" onclick="toggleMobileDrawer()" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="Open navigation">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MOBILE SLIDE-OUT DRAWER OVERLAY & MENU -->
+    <div id="mobile-drawer-backdrop" onclick="toggleMobileDrawer()" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity"></div>
+    <div id="mobile-drawer" class="fixed top-0 bottom-0 left-0 w-72 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col border-r"
+         style="background-color: var(--bg-sidebar); border-color: var(--border-color);">
+        <!-- Drawer Header -->
+        <div class="h-16 flex items-center justify-between px-5 border-b" style="border-color: var(--border-color);">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center bg-brand-600 text-white font-black text-sm">⚡</div>
+                <span class="font-bold text-sm" style="color: var(--text-primary);">HomePilot Navigation</span>
+            </div>
+            <button type="button" onclick="toggleMobileDrawer()" class="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Drawer Links -->
+        <nav class="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto">
+            <a href="{% url 'dashboard_web:dashboard' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 text-brand-600 dark:text-brand-400"></i> Dashboard
+            </a>
+            <a href="{% url 'dashboard_web:bills-list' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="receipt" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i> All Bills
+            </a>
+            <a href="{% url 'dashboard_web:bill-upload' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i> Add / Upload Bill
+            </a>
+            <a href="{% url 'dashboard_web:recurring-list' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="repeat" class="w-4 h-4 text-sky-600 dark:text-sky-400"></i> Recurring Bills
+            </a>
+            <a href="{% url 'dashboard_web:spending-insights' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i> Spending Insights
+            </a>
+            <a href="{% url 'dashboard_web:reports' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="bar-chart-3" class="w-4 h-4 text-teal-600 dark:text-teal-400"></i> Reports & Export
+            </a>
+            <a href="{% url 'dashboard_web:ai-assistant' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="bot" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i> AI Assistant
+            </a>
+            <a href="{% url 'dashboard_web:notifications-inbox' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="bell" class="w-4 h-4 text-rose-600 dark:text-rose-400"></i> Alerts & Reminders
+            </a>
+            <a href="{% url 'dashboard_web:audit-log' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="shield-check" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i> Audit Trail
+            </a>
+            <a href="{% url 'dashboard_web:household' %}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50">
+                <i data-lucide="users" class="w-4 h-4 text-purple-600 dark:text-purple-400"></i> Family Household
+            </a>
+        </nav>
+
+        <!-- Drawer Footer -->
+        <div class="p-4 border-t" style="border-color: var(--border-color);">
+            {% if user.is_authenticated %}
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="font-bold text-xs block" style="color: var(--text-primary);">{{ user.display_name }}</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400 block">@{{ user.username }}</span>
+                </div>
+                <form method="POST" action="{% url 'dashboard_web:logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300">Sign Out</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
     </div>
-    {% endif %}
 
-    <!-- Main Content -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {% block content %}{% endblock %}
-    </main>
+    <!-- MAIN APPLICATION WRAPPER (Offsets for fixed desktop sidebar) -->
+    <div id="main-wrapper" class="flex-1 flex flex-col transition-all duration-300 lg:pl-64">
+        
+        <!-- Global Flash Messages Notification Bar -->
+        {% if messages %}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 w-full">
+            {% for message in messages %}
+            <div class="p-4 mb-3 rounded-2xl text-xs sm:text-sm font-medium flex items-center justify-between border shadow-sm transition animate-fadeIn
+                {% if message.tags == 'error' %}
+                    bg-rose-500/10 text-rose-300 border-rose-500/30
+                {% elif message.tags == 'success' %}
+                    bg-emerald-500/10 text-emerald-300 border-emerald-500/30
+                {% elif message.tags == 'warning' %}
+                    bg-amber-500/10 text-amber-300 border-amber-500/30
+                {% else %}
+                    bg-brand-500/10 text-brand-300 border-brand-500/30
+                {% endif %}">
+                <div class="flex items-center gap-2.5">
+                    {% if message.tags == 'error' %}
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-rose-400 shrink-0"></i>
+                    {% elif message.tags == 'success' %}
+                    <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400 shrink-0"></i>
+                    {% elif message.tags == 'warning' %}
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 shrink-0"></i>
+                    {% else %}
+                    <i data-lucide="info" class="w-5 h-5 text-brand-400 shrink-0"></i>
+                    {% endif %}
+                    <span>{{ message }}</span>
+                </div>
+                <button type="button" onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-100 p-1">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
-    <!-- Footer -->
-    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
-        <p>&copy; {% now "Y" %} HomePilot - Household Bill Management & Automated Reminders. Built with Django.</p>
-    </footer>
+        <!-- Content Area -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Minimalist SaaS Footer -->
+        <footer class="border-t py-6 text-center text-xs transition" style="border-color: var(--border-color); color: var(--text-muted);">
+            <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p>&copy; {% now "Y" %} HomePilot Technologies Inc. &bull; Household Financial Intelligence Monolith</p>
+                <div class="flex items-center gap-4 text-[11px]">
+                    <span class="inline-flex items-center gap-1.5 text-emerald-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> System Operational
+                    </span>
+                    <a href="{% url 'dashboard_web:audit-log' %}" class="hover:text-brand-400 transition">Audit Logs</a>
+                    <a href="{% url 'dashboard_web:reports' %}" class="hover:text-brand-400 transition">Export Center</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Global Client Scripts for Dynamic Theme Toggling and Sidebar State -->
+    <script>
+        // 1. Theme Management Functions
+        function setTheme(theme) {
+            var html = document.documentElement;
+            if (theme === 'light') {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                html.setAttribute('data-theme', 'light');
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                html.setAttribute('data-theme', 'dark');
+            }
+
+            // Store in cookie for exactly 1 year (365 days = 31536000 seconds)
+            var isSecure = location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = "homepilot_theme=" + theme + "; max-age=31536000; path=/; SameSite=Lax" + isSecure;
+
+            updateThemeUI(theme);
+            window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: theme } }));
+        }
+
+        function toggleTheme() {
+            var current = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+            var next = current === 'dark' ? 'light' : 'dark';
+            setTheme(next);
+        }
+
+        function updateThemeUI(theme) {
+            var darkIcons = document.querySelectorAll('.theme-icon-dark');
+            var lightIcons = document.querySelectorAll('.theme-icon-light');
+            var labels = document.querySelectorAll('.theme-label');
+
+            if (theme === 'light') {
+                darkIcons.forEach(function(el) { el.classList.add('hidden'); });
+                lightIcons.forEach(function(el) { el.classList.remove('hidden'); });
+                labels.forEach(function(el) { el.textContent = 'Light Mode'; });
+            } else {
+                darkIcons.forEach(function(el) { el.classList.remove('hidden'); });
+                lightIcons.forEach(function(el) { el.classList.add('hidden'); });
+                labels.forEach(function(el) { el.textContent = 'Dark Mode'; });
+            }
+        }
+
+        // 2. Desktop Sidebar Collapse Management
+        function toggleSidebarCollapse() {
+            var sidebar = document.getElementById('desktop-sidebar');
+            var wrapper = document.getElementById('main-wrapper');
+            var icon = document.getElementById('collapse-icon');
+            var isCollapsed = sidebar.classList.contains('sidebar-collapsed');
+
+            if (isCollapsed) {
+                sidebar.classList.remove('sidebar-collapsed', 'w-20');
+                sidebar.classList.add('w-64');
+                wrapper.classList.remove('lg:pl-20');
+                wrapper.classList.add('lg:pl-64');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+                localStorage.setItem('homepilot_sidebar_collapsed', 'false');
+            } else {
+                sidebar.classList.add('sidebar-collapsed', 'w-20');
+                sidebar.classList.remove('w-64');
+                wrapper.classList.add('lg:pl-20');
+                wrapper.classList.remove('lg:pl-64');
+                if (icon) icon.style.transform = 'rotate(180deg)';
+                localStorage.setItem('homepilot_sidebar_collapsed', 'true');
+            }
+        }
+
+        // 3. Mobile Drawer Controls
+        function toggleMobileDrawer() {
+            var drawer = document.getElementById('mobile-drawer');
+            var backdrop = document.getElementById('mobile-drawer-backdrop');
+            var isOpen = !drawer.classList.contains('-translate-x-full');
+
+            if (isOpen) {
+                drawer.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+                document.body.style.overflow = '';
+            } else {
+                drawer.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        // Initialize state on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Lucide SVG icons
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            // Sync theme toggle UI with initial cookie state
+            var currentTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+            updateThemeUI(currentTheme);
+
+            // Restore sidebar collapse state
+            if (localStorage.getItem('homepilot_sidebar_collapsed') === 'true') {
+                var sidebar = document.getElementById('desktop-sidebar');
+                var wrapper = document.getElementById('main-wrapper');
+                var icon = document.getElementById('collapse-icon');
+                if (sidebar && wrapper) {
+                    sidebar.classList.add('sidebar-collapsed', 'w-20');
+                    sidebar.classList.remove('w-64');
+                    wrapper.classList.add('lg:pl-20');
+                    wrapper.classList.remove('lg:pl-64');
+                    if (icon) icon.style.transform = 'rotate(180deg)';
+                }
+            }
+        });
+    </script>
 </body>
 </html>
