@@ -17,9 +17,6 @@ redis>=5.0
 pypdf>=5.0
 Pillow>=10.4
 
-# Data Validation & AI
-pydantic>=2.9
-
 # Environment Configuration
 python-dotenv>=1.0
 

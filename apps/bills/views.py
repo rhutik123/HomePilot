@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.http import FileResponse, Http404
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -13,6 +14,8 @@ from .serializers import (
     BillDocumentSerializer,
     BillDocumentUploadSerializer,
 )
+from .services.document_parser import DocumentParserService
+from .services.extraction import get_extraction_provider
 
 
 class BillViewSet(viewsets.ModelViewSet):
@@ -139,6 +142,105 @@ class BillDocumentUploadAPIView(APIView):
                 {
                     "message": "Document uploaded successfully.",
                     "document": BillDocumentSerializer(document).data,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BillDocumentExtractAPIView(APIView):
+    """
+    Extracts text from document and triggers AI/mock structured extraction.
+    Step 1 of the review flow: extracts data without saving to final Bill table.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            document = BillDocument.objects.select_related("household").get(
+                id=pk,
+                household__memberships__user=request.user,
+            )
+        except BillDocument.DoesNotExist:
+            return Response(
+                {"error": "Document not found or access denied."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            # 1. Extract raw text from file
+            raw_text = DocumentParserService.extract_text(
+                document.file,
+                mime_type=document.mime_type,
+            )
+            document.raw_text = raw_text
+
+            # 2. Extract structured data via provider
+            provider = get_extraction_provider()
+            extracted_result = provider.extract(raw_text, mime_type=document.mime_type)
+
+            # 3. Save extracted state on document
+            extracted_dict = extracted_result.model_dump(mode="json")
+            document.extracted_data = extracted_dict
+            document.extraction_status = BillDocument.ExtractionStatus.SUCCESS
+            document.save(update_fields=["raw_text", "extracted_data", "extraction_status"])
+
+            return Response(
+                {
+                    "message": "Information extracted successfully. Please review before saving.",
+                    "document_id": document.id,
+                    "extracted_data": extracted_dict,
+                    "requires_manual_entry": len(extracted_result.missing_fields) > 0,
+                    "missing_fields": extracted_result.missing_fields,
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            document.extraction_status = BillDocument.ExtractionStatus.FAILED
+            document.save(update_fields=["extraction_status"])
+            return Response(
+                {
+                    "error": f"Extraction failed: {str(e)}",
+                    "requires_manual_entry": True,
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+
+class BillDocumentConfirmAPIView(APIView):
+    """
+    Step 2 of the review flow: User submits reviewed and corrected information.
+    Creates the permanent Bill record and attaches the document.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            document = BillDocument.objects.select_related("household").get(
+                id=pk,
+                household__memberships__user=request.user,
+            )
+        except BillDocument.DoesNotExist:
+            return Response(
+                {"error": "Document not found or access denied."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Merge household ID from document
+        data = request.data.copy()
+        data["household"] = document.household.id
+
+        serializer = BillSerializer(data=data, context={"request": request})
+        if serializer.is_valid():
+            with transaction.atomic():
+                bill = serializer.save(uploaded_by=request.user)
+                document.bill = bill
+                document.save(update_fields=["bill"])
+
+            return Response(
+                {
+                    "message": "Bill confirmed and saved successfully.",
+                    "bill": BillSerializer(bill).data,
                 },
                 status=status.HTTP_201_CREATED,
             )

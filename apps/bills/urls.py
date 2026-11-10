@@ -4,6 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     BillViewSet,
     BillDocumentUploadAPIView,
+    BillDocumentExtractAPIView,
+    BillDocumentConfirmAPIView,
     BillDocumentDetailAPIView,
     BillDocumentDownloadAPIView,
 )
@@ -15,6 +17,8 @@ router.register(r"", BillViewSet, basename="bill")
 
 urlpatterns = [
     path("documents/upload/", BillDocumentUploadAPIView.as_view(), name="document-upload"),
+    path("documents/<int:pk>/extract/", BillDocumentExtractAPIView.as_view(), name="document-extract"),
+    path("documents/<int:pk>/confirm/", BillDocumentConfirmAPIView.as_view(), name="document-confirm"),
     path("documents/<int:pk>/", BillDocumentDetailAPIView.as_view(), name="document-detail"),
     path("documents/<int:pk>/download/", BillDocumentDownloadAPIView.as_view(), name="document-download"),
 ] + router.urls
