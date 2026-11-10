@@ -226,6 +226,17 @@
             <p class="text-xs text-slate-500">Please review the extracted information below. Correct any fields before finalizing.</p>
         </div>
 
+        {% if extracted_data.error %}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2.5">
+            <span class="text-base">⚠️</span>
+            <div>
+                <p class="font-bold">Automated Extraction Notice</p>
+                <p class="mt-0.5">{{ extracted_data.error }}</p>
+                <p class="mt-0.5 text-slate-600">You can verify and fill in any missing details manually below before confirming.</p>
+            </div>
+        </div>
+        {% endif %}
+
         {% if current_doc and current_doc.is_possible_duplicate %}
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex items-start space-x-2.5">
             <span class="text-base">⚠️</span>

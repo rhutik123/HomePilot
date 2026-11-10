@@ -6,6 +6,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle
 
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from apps.audit.models import AuditEvent
+from apps.audit.services import AuditService
 
 
 class AuthAnonRateThrottle(AnonRateThrottle):
@@ -26,6 +28,12 @@ class RegisterAPIView(APIView):
             user = serializer.save()
             # Optionally log the user in immediately upon registration
             login(request, user)
+            AuditService.log(
+                action=AuditEvent.Action.USER_REGISTERED,
+                actor=user,
+                description=f"New user '{user.username}' registered via API.",
+                ip_address=request.META.get("REMOTE_ADDR"),
+            )
             return Response(
                 {
                     "message": "User registered successfully.",

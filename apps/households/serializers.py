@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 from .models import Household, HouseholdMembership
 from apps.accounts.serializers import UserSerializer
+from apps.audit.models import AuditEvent
+from apps.audit.services import AuditService
 
 User = get_user_model()
 
@@ -69,7 +71,14 @@ class HouseholdCreateSerializer(serializers.ModelSerializer):
             HouseholdMembership.objects.create(
                 household=household,
                 user=user,
-                role=HouseholdMembership.Role.OWNER,
+                role=HouseholdMembership.Role.ROLE_OWNER if hasattr(HouseholdMembership.Role, "ROLE_OWNER") else HouseholdMembership.Role.OWNER,
+            )
+            AuditService.log(
+                action=AuditEvent.Action.HOUSEHOLD_CREATED,
+                actor=user,
+                household=household,
+                entity=household,
+                description=f"Household '{household.name}' created by {user.display_name}.",
             )
         return household
 

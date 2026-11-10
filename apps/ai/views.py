@@ -51,6 +51,26 @@ class AIConversationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def perform_destroy(self, instance):
+        """
+        Enforce that only the conversation creator or household owner can delete the conversation.
+        Preserves an audit record of the deletion.
+        """
+        if instance.user != self.request.user and not instance.household.is_owner(self.request.user):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have permission to delete this conversation.")
+        from apps.audit.services import AuditService
+        from apps.audit.models import AuditEvent
+        AuditService.log(
+            action=AuditEvent.Action.CONVERSATION_DELETED,
+            actor=self.request.user,
+            household=instance.household,
+            entity=instance,
+            description=f"AI conversation '{instance.title}' deleted by {self.request.user.display_name}.",
+            metadata={"conversation_id": str(instance.id), "title": instance.title},
+        )
+        instance.delete()
+
     @action(detail=True, methods=["post"])
     def send_message(self, request, pk=None):
         """

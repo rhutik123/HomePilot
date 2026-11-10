@@ -5,16 +5,21 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
+from django.test import Client
 from rest_framework.test import APIClient
 from rest_framework import status
 
 from apps.households.models import Household, HouseholdMembership
 from apps.bills.models import Bill, BillStatus, BillCategory, BillDocument
-from apps.reminders.models import BillReminder, ReminderType, NotificationLog
+from apps.documents.models import Document
+from apps.reminders.models import BillReminder, ReminderType, NotificationLog, InAppNotification
 from apps.reminders.services.reminder_service import ReminderService
 from apps.reminders.tasks import send_bill_reminder_task
 from apps.audit.models import AuditEvent
-from apps.payments.models import Payment
+from apps.payments.models import Payment, PaymentMethod
+from apps.payments.services.payment_service import PaymentService
+from apps.recurring.models import RecurringSchedule, RecurrenceFrequency
+from apps.ai.models import AIConversation, SpendingInsight
 
 User = get_user_model()
 
@@ -446,4 +451,143 @@ class TestPhase0SecurityAndStabilization:
             action=AuditEvent.Action.PAYMENT_RECORDED,
         ).first()
         assert payment_record_event is not None
+
+    def test_unauthenticated_api_requests_are_rejected(self):
+        """Anonymous access to protected endpoints across all apps must return 401/403."""
+        anon_client = APIClient()
+        protected_endpoints = [
+            "/api/bills/",
+            "/api/v1/payments/",
+            "/api/v1/documents/",
+            "/api/v1/recurring/",
+            "/api/v1/reminders/",
+            "/api/v1/ai/conversations/",
+            "/api/v1/analytics/overview/",
+            "/api/v1/audit/",
+        ]
+        for url in protected_endpoints:
+            resp = anon_client.get(url)
+            assert resp.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN], f"{url} allowed anon"
+
+    def test_strict_household_tenant_isolation_across_endpoints(self):
+        """Users can never view or modify entities belonging to another household."""
+        today = timezone.localdate()
+        stranger_bill = Bill.objects.create(
+            household=self.other_household,
+            uploaded_by=self.stranger,
+            assigned_to=self.stranger,
+            provider_name="Alien Gas",
+            amount=Decimal("500.00"),
+            due_date=today + timedelta(days=5),
+        )
+        stranger_sched = RecurringSchedule.objects.create(
+            household=self.other_household,
+            created_by=self.stranger,
+            provider_name="Alien Netflix",
+            expected_amount=Decimal("649.00"),
+            frequency=RecurrenceFrequency.MONTHLY,
+            next_due_date=today + timedelta(days=15),
+        )
+        stranger_conv = AIConversation.objects.create(
+            household=self.other_household,
+            user=self.stranger,
+            title="Alien Chat",
+        )
+
+        # Alice attempts to access stranger's records
+        assert self.client.get(f"/api/bills/{stranger_bill.id}/").status_code == status.HTTP_404_NOT_FOUND
+        assert self.client.patch(f"/api/bills/{stranger_bill.id}/", {"notes": "hack"}).status_code == status.HTTP_404_NOT_FOUND
+        assert self.client.delete(f"/api/bills/{stranger_bill.id}/").status_code == status.HTTP_404_NOT_FOUND
+        assert self.client.get(f"/api/v1/recurring/{stranger_sched.id}/").status_code == status.HTTP_404_NOT_FOUND
+        assert self.client.get(f"/api/v1/ai/conversations/{stranger_conv.id}/").status_code == status.HTTP_404_NOT_FOUND
+        assert self.client.post(f"/api/v1/ai/conversations/{stranger_conv.id}/send_message/", {"prompt": "hi"}).status_code == status.HTTP_404_NOT_FOUND
+
+    def test_non_owner_member_cannot_void_payment_or_add_members(self):
+        """Regular household members (non-owners) are barred from owner-only operations."""
+        today = timezone.localdate()
+        bill = Bill.objects.create(
+            household=self.household,
+            uploaded_by=self.user,
+            assigned_to=self.user,
+            provider_name="Electric Utility",
+            amount=Decimal("2000.00"),
+            due_date=today + timedelta(days=10),
+        )
+        payment = PaymentService.record_payment(
+            bill=bill,
+            user=self.user,
+            amount=Decimal("2000.00"),
+            payment_method=PaymentMethod.UPI,
+        )
+
+        # Authenticate as bob_sec (Role.MEMBER)
+        member_client = APIClient()
+        member_client.force_authenticate(user=self.family_member)
+
+        # 1. Non-owner cannot void payment
+        void_resp = member_client.post(f"/api/v1/payments/{payment.id}/void/", {"reason": "Unauthorized void"})
+        assert void_resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Only household owners" in str(void_resp.data)
+
+        # 2. Non-owner cannot record payment adjustment
+        adj_resp = member_client.post(f"/api/v1/payments/{payment.id}/adjust/", {"amount": "-500.00", "reason": "Unauthorized adjustment"})
+        assert adj_resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Only household owners" in str(adj_resp.data)
+
+        # 3. Non-owner cannot add member via API
+        add_resp = member_client.post(
+            f"/api/households/{self.household.id}/add_member/",
+            {"username_or_email": "intruder@example.com", "role": HouseholdMembership.Role.MEMBER},
+        )
+        assert add_resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_api_registration_rejects_username_similar_password(self):
+        """RegisterSerializer enforces UserAttributeSimilarityValidator."""
+        client = APIClient()
+        payload = {
+            "username": "similaruser123",
+            "email": "similaruser123@example.com",
+            "first_name": "Similar",
+            "last_name": "User",
+            "password": "similaruser123_pass",
+            "password_confirm": "similaruser123_pass",
+        }
+        resp = client.post("/api/auth/register/", payload, format="json")
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert "password" in resp.data
+        assert any("too similar" in str(msg).lower() for msg in resp.data["password"])
+
+    def test_state_changing_web_endpoints_reject_get_requests(self):
+        """Web routes performing state mutations must reject GET requests with 405 Method Not Allowed."""
+        web_client = Client()
+        web_client.force_login(self.user)
+
+        today = timezone.localdate()
+        bill = Bill.objects.create(
+            household=self.household,
+            uploaded_by=self.user,
+            assigned_to=self.user,
+            provider_name="State Change Bill",
+            amount=Decimal("600.00"),
+            due_date=today + timedelta(days=5),
+        )
+        notif = InAppNotification.objects.create(
+            user=self.user,
+            title="Test Alert",
+            message="Test Message",
+        )
+        insight = SpendingInsight.objects.create(
+            household=self.household,
+            insight_type=SpendingInsight.InsightType.EXPENSE_SPIKE,
+            title="Spike Alert",
+            description="Spend increased",
+        )
+
+        # GET requests to state-changing views must return 405
+        assert web_client.get(f"/bills/{bill.id}/mark-paid/").status_code == 405
+        assert web_client.get(f"/notifications/{notif.id}/read/").status_code == 405
+        assert web_client.get("/notifications/mark-all-read/").status_code == 405
+        assert web_client.get(f"/insights/{insight.id}/dismiss/").status_code == 405
+        assert web_client.get("/insights/generate/").status_code == 405
+
 

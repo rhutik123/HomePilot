@@ -42,9 +42,20 @@ class LocalTesseractOCRService(BaseOCRService):
 
         try:
             import pytesseract
+            from PIL import ImageOps, ImageEnhance
             image = Image.open(io.BytesIO(image_bytes))
+            # Auto-orient smartphone photos if EXIF orientation metadata exists
+            try:
+                image = ImageOps.exif_transpose(image)
+            except Exception:
+                pass
             # Convert to grayscale for cleaner OCR accuracy
             gray_image = image.convert("L")
+            # Enhance contrast to sharpen text against receipt backgrounds
+            try:
+                gray_image = ImageEnhance.Contrast(gray_image).enhance(1.4)
+            except Exception:
+                pass
             text = pytesseract.image_to_string(gray_image)
             return text.strip()
         except Exception as e:

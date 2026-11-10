@@ -38,11 +38,12 @@ class HouseholdAITools:
         user,
         days: int = 30,
         only_assigned_to_me: bool = False,
+        limit: int = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
         Returns bills due within the next N days (default 30) that have outstanding balances.
-        Optionally filters only bills assigned to the calling user.
+        Optionally filters only bills assigned to the calling user and respects quantity limit.
         """
         if not household.is_member(user):
             return {"error": "User does not have permission to view household financial records."}
@@ -65,6 +66,11 @@ class HouseholdAITools:
             qs = qs.filter(assigned_to=user)
 
         total_upcoming = qs.aggregate(sum=Sum("outstanding_balance"))["sum"] or Decimal("0.00")
+        total_count = qs.count()
+
+        if limit is not None and int(limit) > 0:
+            qs = qs[:int(limit)]
+
         bills_list = []
         for b in qs:
             bills_list.append({
@@ -86,6 +92,8 @@ class HouseholdAITools:
             "days_ahead": int(days),
             "only_assigned_to_me": bool(only_assigned_to_me),
             "upcoming_count": len(bills_list),
+            "total_count": total_count,
+            "limit_applied": int(limit) if limit else None,
             "total_upcoming_amount": _format_currency(total_upcoming),
             "bills": bills_list,
         }
@@ -96,10 +104,12 @@ class HouseholdAITools:
         household: Household,
         user,
         only_assigned_to_me: bool = False,
+        limit: int = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
-        Returns all bills with past due dates that remain unpaid or partially paid.
+        Returns all bills with past due dates that remain unpaid or partially paid,
+        with optional quantity limit.
         """
         if not household.is_member(user):
             return {"error": "User does not have permission to view household financial records."}
@@ -119,6 +129,11 @@ class HouseholdAITools:
             qs = qs.filter(assigned_to=user)
 
         total_overdue = qs.aggregate(sum=Sum("outstanding_balance"))["sum"] or Decimal("0.00")
+        total_count = qs.count()
+
+        if limit is not None and int(limit) > 0:
+            qs = qs[:int(limit)]
+
         overdue_list = []
         for b in qs:
             overdue_list.append({
@@ -137,6 +152,8 @@ class HouseholdAITools:
         return {
             "household": household.name,
             "overdue_count": len(overdue_list),
+            "total_count": total_count,
+            "limit_applied": int(limit) if limit else None,
             "total_overdue_amount": _format_currency(total_overdue),
             "only_assigned_to_me": bool(only_assigned_to_me),
             "bills": overdue_list,
@@ -459,11 +476,12 @@ class HouseholdAITools:
         cls,
         household: Household,
         user,
+        limit: int = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
         Analyzes active recurring bill schedules configured for the household
-        and calculates their total monthly recurring commitment.
+        and calculates their total monthly recurring commitment, with optional limit.
         """
         if not household.is_member(user):
             return {"error": "User does not have permission to view household financial records."}
@@ -473,10 +491,12 @@ class HouseholdAITools:
             .select_related("assigned_to")
             .order_by("next_due_date")
         )
+        total_schedules_count = active_schedules.count()
 
         monthly_commitment = Decimal("0.00")
         schedules_list = []
 
+        # Calculate monthly commitment from all schedules
         for sched in active_schedules:
             amt = sched.expected_amount or Decimal("0.00")
             monthly_equiv = amt
@@ -489,6 +509,21 @@ class HouseholdAITools:
                 monthly_equiv = (amt / Decimal("12")).quantize(Decimal("0.01"))
 
             monthly_commitment += monthly_equiv
+
+        # Apply limit to returned schedule items if requested
+        if limit is not None and int(limit) > 0:
+            active_schedules = active_schedules[:int(limit)]
+
+        for sched in active_schedules:
+            amt = sched.expected_amount or Decimal("0.00")
+            monthly_equiv = amt
+            if sched.frequency == RecurrenceFrequency.MONTHLY:
+                monthly_equiv = amt
+            elif sched.frequency == RecurrenceFrequency.QUARTERLY:
+                monthly_equiv = (amt / Decimal("3")).quantize(Decimal("0.01"))
+            elif sched.frequency == RecurrenceFrequency.YEARLY:
+                monthly_equiv = (amt / Decimal("12")).quantize(Decimal("0.01"))
+
             schedules_list.append({
                 "id": sched.id,
                 "provider_name": sched.provider_name,
@@ -504,7 +539,8 @@ class HouseholdAITools:
 
         return {
             "household": household.name,
-            "active_schedules_count": active_schedules.count(),
+            "active_schedules_count": total_schedules_count,
+            "limit_applied": int(limit) if limit else None,
             "estimated_monthly_recurring_total": _format_currency(monthly_commitment),
             "schedules": schedules_list,
         }
@@ -515,11 +551,12 @@ class HouseholdAITools:
         household: Household,
         user,
         only_assigned_to_me: bool = False,
+        limit: int = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
         Returns all unpaid or partially paid bills for the household,
-        with optional filtering for bills assigned to the calling user.
+        with optional filtering for bills assigned to the calling user and quantity limit.
         """
         if not household.is_member(user):
             return {"error": "User does not have permission to view household financial records."}
@@ -537,6 +574,11 @@ class HouseholdAITools:
             qs = qs.filter(assigned_to=user)
 
         total_due = qs.aggregate(sum=Sum("outstanding_balance"))["sum"] or Decimal("0.00")
+        total_count = qs.count()
+
+        if limit is not None and int(limit) > 0:
+            qs = qs[:int(limit)]
+
         bills_data = []
         for b in qs:
             bills_data.append({
@@ -555,7 +597,8 @@ class HouseholdAITools:
 
         return {
             "household": household.name,
-            "unpaid_bills_count": len(bills_data),
+            "unpaid_bills_count": total_count,
+            "limit_applied": int(limit) if limit else None,
             "total_outstanding_amount": _format_currency(total_due),
             "only_assigned_to_me": bool(only_assigned_to_me),
             "bills": bills_data,

@@ -73,6 +73,42 @@ class TestMockExtraction:
         assert "amount" in result.missing_fields
         assert "due_date" in result.missing_fields
 
+    def test_amount_not_confused_with_pay_within_days_or_percentages(self):
+        """
+        Regression test: phrases like 'Pay within 5 days' or 'Rebate: 5%' must NOT
+        cause the bill amount to be extracted as 5.
+        """
+        sample_text = (
+            "BESCOM Bangalore Electricity Supply Company Limited\n"
+            "Consumer ID: 1029384756\n"
+            "Payment Terms: Please pay within 5 days of bill generation.\n"
+            "Rebate of 5% applies if paid online.\n"
+            "Total Amount Due: Rs. 3,850.50\n"
+            "Due Date: 25/11/2026\n"
+        )
+        result = self.provider.extract(sample_text)
+        assert result.provider_name == "BESCOM"
+        assert result.category == "ELECTRICITY"
+        assert result.amount == Decimal("3850.50")
+        assert result.due_date == date(2026, 11, 25)
+
+    def test_indian_date_and_provider_detection(self):
+        """Tests parsing of Indian billers and flexible date formats (e.g. DD-Mon-YYYY)."""
+        sample_text = (
+            "Indraprastha Gas (IGL)\n"
+            "PNG Domestic Consumer Bill\n"
+            "CA No: 99887766\n"
+            "Bill Date: 01-Nov-2026\n"
+            "Last Date for Payment: 20-Nov-2026\n"
+            "Net Payable: Rs. 1420.00\n"
+        )
+        result = self.provider.extract(sample_text)
+        assert result.provider_name == "Indraprastha Gas (IGL)"
+        assert result.category == "GAS"
+        assert result.amount == Decimal("1420.00")
+        assert result.issue_date == date(2026, 11, 1)
+        assert result.due_date == date(2026, 11, 20)
+
 
 @pytest.mark.django_db
 class TestExtractionAPIWorkflow:

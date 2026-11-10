@@ -9,6 +9,9 @@ class AuditEvent(models.Model):
     Historical records must never be casually deleted or purged.
     """
     class Action(models.TextChoices):
+        USER_REGISTERED = "USER_REGISTERED", "User Registered"
+        HOUSEHOLD_CREATED = "HOUSEHOLD_CREATED", "Household Created"
+        CONVERSATION_DELETED = "CONVERSATION_DELETED", "Conversation Deleted"
         BILL_CREATED = "BILL_CREATED", "Bill Created"
         BILL_UPDATED = "BILL_UPDATED", "Bill Updated"
         BILL_PAID = "BILL_PAID", "Bill Paid"

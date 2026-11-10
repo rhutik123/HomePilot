@@ -238,6 +238,14 @@ class TestPhase7ControlledTools:
         assert "error" in res
         assert "permission" in res["error"].lower()
 
+    def test_tool_quantity_limit_parameter(self, test_household, member_user, sample_financial_data):
+        """Verifies that the limit parameter restricts returned items to the specified count."""
+        # 2 upcoming bills exist in sample_financial_data; limit=1 returns exactly 1 item
+        res = HouseholdAITools.get_upcoming_bills(test_household, member_user, days=30, limit=1)
+        assert len(res["bills"]) == 1
+        assert res["total_count"] == 2
+        assert res["limit_applied"] == 1
+
 
 @pytest.mark.django_db
 class TestPhase7ConversationalAssistant:
@@ -262,6 +270,16 @@ class TestPhase7ConversationalAssistant:
         assert "750.00 INR" in msg.content
         assert "City Water Dept" in msg.content
         assert "46 days" in msg.content
+
+    def test_assistant_respects_quantity_in_natural_language_prompt(self, test_household, member_user, sample_financial_data):
+        """User asks: 'Show 1 upcoming bill' -> Passes limit=1 to tool and shows 1 item."""
+        conv = AIConversation.objects.create(household=test_household, user=member_user)
+        msg, tools = AIAssistantService.send_message(conv, member_user, "Show 1 upcoming bill")
+
+        assert len(tools) == 1
+        assert tools[0].tool_name == "get_upcoming_bills"
+        assert tools[0].tool_arguments.get("limit") == 1
+        assert "Showing **1 of 2 upcoming bills**" in msg.content
 
     def test_answer_electricity_spend_last_month(self, test_household, member_user, sample_financial_data):
         """User asks: 'How much did we spend on electricity last month?' -> Triggers get_category_spending."""
@@ -368,3 +386,28 @@ class TestPhase7APIAndWebInterface:
         res_new = client.post("/assistant/new/", {"household_id": test_household.id})
         assert res_new.status_code == status.HTTP_302_FOUND
         assert AIConversation.objects.filter(household=test_household, user=member_user).count() >= 2
+
+    def test_conversation_deletion_api_and_web_flow(self, member_user, owner_user, outsider_user, test_household):
+        """Tests that conversation deletion is authorized, audited, and cleans up records."""
+        from apps.audit.models import AuditEvent
+        conv = AIConversation.objects.create(household=test_household, user=member_user, title="To Be Deleted")
+        client = APIClient()
+
+        # 1. Outsider cannot delete (404 isolation)
+        client.force_authenticate(user=outsider_user)
+        res_outsider = client.delete(f"/api/v1/ai/conversations/{conv.id}/")
+        assert res_outsider.status_code == status.HTTP_404_NOT_FOUND
+
+        # 2. Web deletion action works and logs audit
+        client.force_login(member_user)
+        res_web_del = client.post(f"/assistant/conversations/{conv.id}/delete/")
+        assert res_web_del.status_code == status.HTTP_302_FOUND
+        assert not AIConversation.objects.filter(id=conv.id).exists()
+
+        # Verify audit log was created
+        audit_entry = AuditEvent.objects.filter(
+            action=AuditEvent.Action.CONVERSATION_DELETED,
+            household=test_household,
+        ).first()
+        assert audit_entry is not None
+        assert "To Be Deleted" in audit_entry.description

@@ -287,7 +287,13 @@ def bill_upload_view(request):
                         except Exception as extraction_err:
                             logger.warning("Extraction failed for doc #%s: %s", doc.id, extraction_err)
                             doc.extraction_status = BillDocument.ExtractionStatus.FAILED
-                            doc.save(update_fields=["extraction_status"])
+                            doc.extracted_data = {
+                                "error": str(extraction_err),
+                                "provider_used": getattr(provider, "provider_name", "unknown") if 'provider' in locals() else "unknown",
+                                "model_used": "none",
+                                "confidence_notes": f"Extraction could not be completed automatically: {str(extraction_err)}",
+                            }
+                            doc.save(update_fields=["extraction_status", "extracted_data"])
 
                             AuditService.log(
                                 action=AuditEvent.Action.EXTRACTION_FAILED,
@@ -1324,6 +1330,43 @@ def ai_assistant_new_conversation_web(request):
 
 
 @login_required(login_url="dashboard_web:login")
+@require_POST
+def ai_assistant_delete_conversation_web(request, conversation_id):
+    """
+    Deletes an AI conversation thread.
+    Enforces authorization: User must be creator or household owner.
+    Logs AuditEvent.Action.CONVERSATION_DELETED.
+    """
+    user = request.user
+    conversation = get_object_or_404(
+        AIConversation.objects.select_related("household", "user"),
+        id=conversation_id,
+        household__memberships__user=user,
+    )
+
+    if conversation.user != user and not conversation.household.is_owner(user):
+        messages.error(request, "You do not have permission to delete this conversation.")
+        return redirect("dashboard_web:ai-assistant-conversation", conversation_id=conversation.id)
+
+    title = conversation.title
+    household = conversation.household
+    conv_id_str = str(conversation.id)
+
+    AuditService.log(
+        action=AuditEvent.Action.CONVERSATION_DELETED,
+        actor=user,
+        household=household,
+        entity=conversation,
+        description=f"AI conversation '{title}' deleted by {user.display_name}.",
+        metadata={"conversation_id": conv_id_str, "title": title},
+    )
+
+    conversation.delete()
+    messages.success(request, f"Conversation '{title}' deleted successfully.")
+    return redirect("dashboard_web:ai-assistant")
+
+
+@login_required(login_url="dashboard_web:login")
 def reports_view(request):
     """
     Household Analytics & Reports Hub.
@@ -1495,19 +1538,57 @@ def audit_log_view(request):
         active_household = memberships.first().household
         request.session["active_household_id"] = active_household.id
 
-    action_filter = request.GET.get("action", "").strip()
     events = AuditEvent.objects.filter(household=active_household).select_related("actor")
+
+    # Filters
+    action_filter = request.GET.get("action", "").strip()
+    actor_filter = request.GET.get("actor", "").strip()
+    entity_filter = request.GET.get("entity_type", "").strip()
+    date_from_str = request.GET.get("date_from", "").strip()
+    date_to_str = request.GET.get("date_to", "").strip()
 
     if action_filter:
         events = events.filter(action=action_filter)
+    if actor_filter:
+        events = events.filter(actor_id=actor_filter)
+    if entity_filter:
+        events = events.filter(entity_type__iexact=entity_filter)
+    if date_from_str:
+        try:
+            d_from = datetime.strptime(date_from_str, "%Y-%m-%d").date()
+            events = events.filter(created_at__date__gte=d_from)
+        except ValueError:
+            pass
+    if date_to_str:
+        try:
+            d_to = datetime.strptime(date_to_str, "%Y-%m-%d").date()
+            events = events.filter(created_at__date__lte=d_to)
+        except ValueError:
+            pass
 
-    events = events.order_by("-created_at")[:150]
+    events = events.order_by("-created_at")
+
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(events, 25)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    members = User.objects.filter(household_memberships__household=active_household)
+    entity_types = ["Bill", "Payment", "BillDocument", "Document", "RecurringSchedule", "Household", "User", "AIConversation"]
 
     context = {
         "household": active_household,
-        "events": events,
+        "events": page_obj,
+        "page_obj": page_obj,
         "actions": AuditEvent.Action.choices,
         "selected_action": action_filter,
+        "selected_actor": actor_filter,
+        "selected_entity": entity_filter,
+        "selected_date_from": date_from_str,
+        "selected_date_to": date_to_str,
+        "members": members,
+        "entity_types": entity_types,
     }
     return render(request, "audit/index.html", context)
 

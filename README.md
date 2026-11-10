@@ -8,10 +8,9 @@
 [![Database](https://img.shields.io/badge/Database-PostgreSQL%2016%20%7C%20SQLite-336791.svg)](https://www.postgresql.org/)
 [![Celery](https://img.shields.io/badge/Celery-5.4%2B-37814A.svg)](https://docs.celeryq.dev/)
 [![Redis](https://img.shields.io/badge/Redis-7.0%2B-DC382D.svg)](https://redis.io/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![Google Gemini](https://img.shields.io/badge/AI-Google%20Gemini%202.5-8E75C2.svg)](https://ai.google.dev/)
 [![ReportLab](https://img.shields.io/badge/Reports-ReportLab%20PDF-F97316.svg)](https://www.reportlab.com/)
-[![Tests](https://img.shields.io/badge/Tests-230%2B%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-245%2B%20Passed-brightgreen.svg)]()
 
 ---
 
@@ -147,10 +146,17 @@ erDiagram
 
 ---
 
-## 4. Deployment & Quickstart
+## 4. Local Quickstart & Development Environment
 
-### 4.1. Option A: Zero-Dependency Local Python Execution
-HomePilot runs immediately out-of-the-box using standard Python and SQLite without needing Docker, local PostgreSQL, or external daemons:
+HomePilot is engineered for smooth, native local execution on your development machine (Windows, macOS, Linux).
+
+### 4.1. Prerequisites
+- Python 3.12+ (Tested on Python 3.15)
+- Git
+- Redis (Optional for local testing if `CELERY_TASK_ALWAYS_EAGER=True`; required for live async worker)
+- PostgreSQL (Optional; SQLite is supported out-of-the-box for local development)
+
+### 4.2. Setup Instructions
 
 ```powershell
 # 1. Clone repository
@@ -174,22 +180,19 @@ python manage.py migrate
 # 6. Start development server
 python manage.py runserver
 ```
-Visit http://127.0.0.1:8000/ to access the dashboard and http://127.0.0.1:8000/api/ for REST endpoints.
+Visit http://127.0.0.1:8000/ to access the web dashboard and http://127.0.0.1:8000/api/ for REST APIs.
 
-### 4.2. Option B: Production Container Deployment (Docker & Docker Compose)
-HomePilot includes a production Docker setup orchestrating PostgreSQL 16, Redis 7, Django Gunicorn, Celery Worker, and Celery Beat:
+### 4.3. Running Celery Worker & Celery Beat Locally
+
+When running with background task processing enabled (`CELERY_TASK_ALWAYS_EAGER=False` in `.env`):
 
 ```powershell
-# 1. Build and start all services in detached mode
-docker compose up -d --build
+# Start Celery Worker (Terminal 2)
+celery -A config worker --loglevel=info
 
-# 2. Check container status
-docker compose ps
-
-# 3. View live application logs
-docker compose logs -f web
+# Start Celery Beat Scheduler (Terminal 3)
+celery -A config beat --loglevel=info
 ```
-The stack automatically creates persistent volumes for `postgres_data`, `redis_data`, `media_data`, and `static_data`.
 
 ---
 

@@ -23,6 +23,37 @@ CRITICAL ARCHITECTURAL MANDATES:
 """
 
 
+def _extract_quantity_limit(prompt: str) -> Optional[int]:
+    """Extracts requested quantity/limit from user prompt (e.g. 'show 1 bill', 'top 3', 'show two')."""
+    words_to_num = {
+        "one": 1,
+        "single": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+    }
+    # Check digits: "show 1", "top 3", "limit 5", "last 2", "1 upcoming", "1 bill"
+    match_digits = re.search(r"\b(?:top|first|last|show|list|get|give me|only)?\s*(\d+)\s*(?:upcoming|overdue|unpaid|recent|recurring)?\s*(?:bills?|payments?|schedules?|items?|subscriptions?)?\b", prompt, re.IGNORECASE)
+    if match_digits and match_digits.group(1):
+        try:
+            val = int(match_digits.group(1))
+            if 1 <= val <= 100:
+                return val
+        except Exception:
+            pass
+    # Check words: "one", "two", "three", etc.
+    for word, num in words_to_num.items():
+        if re.search(rf"\b(?:top|first|last|show|list|get|give me|only)?\s*{word}\s*(?:upcoming|overdue|unpaid|recent|recurring)?\s*(?:bills?|payments?|schedules?|items?|subscriptions?)?\b", prompt, re.IGNORECASE):
+            return num
+    return None
+
+
 class AIAssistantService:
     """
     Orchestrates stateful natural language conversations with HomePilot AI.
@@ -297,57 +328,69 @@ class AIAssistantService:
         # Intent 2: Overdue bills
         elif any(k in prompt_lower for k in ["overdue", "past due", "late bills"]):
             only_me = any(k in prompt_lower for k in ["my", "assigned to me", "for me"])
-            res = execute_tool_call("get_overdue_bills", {"only_assigned_to_me": only_me}, household, user)
+            limit = _extract_quantity_limit(prompt)
+            tool_args = {"only_assigned_to_me": only_me}
+            if limit:
+                tool_args["limit"] = limit
+            res = execute_tool_call("get_overdue_bills", tool_args, household, user)
             exec_rec = AIToolExecution.objects.create(
                 conversation=conversation,
                 message=user_msg,
                 tool_name="get_overdue_bills",
-                tool_arguments={"only_assigned_to_me": only_me},
+                tool_arguments=tool_args,
                 execution_result=res,
                 is_success="error" not in res,
             )
             tool_executions.append(exec_rec)
 
-            count = res["overdue_count"]
             total = res["total_overdue_amount"]
+            count = len(res["bills"])
+            total_count = res.get("total_count", count)
             scope = "assigned to you" if only_me else "in the household"
-            if count == 0:
+            if total_count == 0:
                 assistant_content = f"Great news! There are currently no overdue bills {scope}."
             else:
                 items = [f"- **{b['provider_name']}** ({b['category_display']}): **{b['outstanding_balance']} INR** (overdue by {b['days_overdue']} days, due {b['due_date']})" for b in res["bills"]]
                 items_str = "\n".join(items)
-                assistant_content = (
-                    f"There {'is' if count == 1 else 'are'} **{count} overdue bill{'s' if count != 1 else ''}** {scope} "
-                    f"totaling **{total} INR**:\n\n{items_str}"
-                )
+                if limit and limit < total_count:
+                    header = f"Showing **{count} of {total_count} overdue bills** {scope} totaling **{total} INR**:\n\n{items_str}"
+                else:
+                    header = f"There {'is' if total_count == 1 else 'are'} **{total_count} overdue bill{'s' if total_count != 1 else ''}** {scope} totaling **{total} INR**:\n\n{items_str}"
+                assistant_content = header
 
         # Intent 3: Upcoming bills
         elif any(k in prompt_lower for k in ["upcoming", "due next", "due soon"]):
             only_me = any(k in prompt_lower for k in ["my", "assigned to me", "for me"])
             days = 7 if "week" in prompt_lower else 30
-            res = execute_tool_call("get_upcoming_bills", {"days": days, "only_assigned_to_me": only_me}, household, user)
+            limit = _extract_quantity_limit(prompt)
+            tool_args = {"days": days, "only_assigned_to_me": only_me}
+            if limit:
+                tool_args["limit"] = limit
+            res = execute_tool_call("get_upcoming_bills", tool_args, household, user)
             exec_rec = AIToolExecution.objects.create(
                 conversation=conversation,
                 message=user_msg,
                 tool_name="get_upcoming_bills",
-                tool_arguments={"days": days, "only_assigned_to_me": only_me},
+                tool_arguments=tool_args,
                 execution_result=res,
                 is_success="error" not in res,
             )
             tool_executions.append(exec_rec)
 
-            count = res["upcoming_count"]
             total = res["total_upcoming_amount"]
+            count = len(res["bills"])
+            total_count = res.get("total_count", count)
             scope = "assigned to you" if only_me else "for household"
-            if count == 0:
+            if total_count == 0:
                 assistant_content = f"You have no upcoming bills due in the next {days} days."
             else:
                 items = [f"- **{b['provider_name']}** ({b['category_display']}): **{b['outstanding_balance']} INR** (due {b['due_date']}, {b['days_until_due']} days remaining)" for b in res["bills"]]
                 items_str = "\n".join(items)
-                assistant_content = (
-                    f"You have **{count} upcoming bill{'s' if count != 1 else ''}** {scope} due in the next {days} days "
-                    f"totaling **{total} INR**:\n\n{items_str}"
-                )
+                if limit and limit < total_count:
+                    header = f"Showing **{count} of {total_count} upcoming bills** {scope} due in the next {days} days (totaling **{total} INR**):\n\n{items_str}"
+                else:
+                    header = f"You have **{total_count} upcoming bill{'s' if total_count != 1 else ''}** {scope} due in the next {days} days totaling **{total} INR**:\n\n{items_str}"
+                assistant_content = header
 
         # Intent 4: Category spending
         elif any(c in prompt_lower for c in ["electricity", "water", "internet", "gas", "rent", "groceries", "insurance"]):
@@ -381,37 +424,45 @@ class AIAssistantService:
 
         # Intent 5: Recurring bills
         elif any(k in prompt_lower for k in ["recurring", "subscription", "subscriptions", "autopay"]):
-            res = execute_tool_call("get_recurring_bills", {}, household, user)
+            limit = _extract_quantity_limit(prompt)
+            tool_args = {}
+            if limit:
+                tool_args["limit"] = limit
+            res = execute_tool_call("get_recurring_bills", tool_args, household, user)
             exec_rec = AIToolExecution.objects.create(
                 conversation=conversation,
                 message=user_msg,
                 tool_name="get_recurring_bills",
-                tool_arguments={},
+                tool_arguments=tool_args,
                 execution_result=res,
                 is_success="error" not in res,
             )
             tool_executions.append(exec_rec)
 
-            count = res["active_schedules_count"]
+            count = len(res["schedules"])
+            total_count = res.get("active_schedules_count", count)
             monthly_total = res["estimated_monthly_recurring_total"]
-            if count == 0:
+            if total_count == 0:
                 assistant_content = "There are currently no active recurring schedules configured for this household."
             else:
                 items = [f"- **{s['provider_name']}** ({s['frequency_display']}): {s['expected_amount']} INR (~{s['monthly_equivalent']} INR/mo, next due: {s['next_due_date']})" for s in res["schedules"]]
                 items_str = "\n".join(items)
-                assistant_content = (
-                    f"Household has **{count} active recurring schedule{'s' if count != 1 else ''}** "
-                    f"totaling **{monthly_total} INR/month**:\n\n{items_str}"
-                )
+                if limit and limit < total_count:
+                    header = f"Showing **{count} of {total_count} active recurring schedules** totaling **{monthly_total} INR/month**:\n\n{items_str}"
+                else:
+                    header = f"Household has **{total_count} active recurring schedule{'s' if total_count != 1 else ''}** totaling **{monthly_total} INR/month**:\n\n{items_str}"
+                assistant_content = header
 
         # Intent 6: Payment summary
         elif any(k in prompt_lower for k in ["payment", "payments", "receipt", "receipts", "settled"]):
-            res = execute_tool_call("get_payment_summary", {"limit": 5}, household, user)
+            limit = _extract_quantity_limit(prompt) or 5
+            tool_args = {"limit": limit}
+            res = execute_tool_call("get_payment_summary", tool_args, household, user)
             exec_rec = AIToolExecution.objects.create(
                 conversation=conversation,
                 message=user_msg,
                 tool_name="get_payment_summary",
-                tool_arguments={"limit": 5},
+                tool_arguments=tool_args,
                 execution_result=res,
                 is_success="error" not in res,
             )

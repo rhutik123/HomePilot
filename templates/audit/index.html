@@ -32,23 +32,49 @@
 
     <!-- Filter Toolbar -->
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-        <form method="GET" class="flex flex-wrap items-center gap-3">
-            <div class="flex-grow min-w-[200px]">
-                <label for="action" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Filter by Action</label>
-                <select id="action" name="action" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                    <option value="">All Actions ({{ events|length }} shown)</option>
+        <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+            <div>
+                <label for="action" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Action</label>
+                <select id="action" name="action" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="">All Actions</option>
                     {% for key, label in actions %}
-                    <option value="{{ key }}" {% if selected_action == key %}selected{% endif %}>{{ label }} ({{ key }})</option>
+                    <option value="{{ key }}" {% if selected_action == key %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="flex items-end gap-2 pt-5">
-                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2.5 rounded-lg transition shadow-sm">
-                    Apply Filter
+            <div>
+                <label for="actor" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Actor</label>
+                <select id="actor" name="actor" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="">All Household Members</option>
+                    {% for m in members %}
+                    <option value="{{ m.id }}" {% if selected_actor == m.id|stringformat:"s" %}selected{% endif %}>{{ m.display_name }} (@{{ m.username }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="entity_type" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Entity Type</label>
+                <select id="entity_type" name="entity_type" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="">All Entities</option>
+                    {% for et in entity_types %}
+                    <option value="{{ et }}" {% if selected_entity == et %}selected{% endif %}>{{ et }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="date_from" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">From Date</label>
+                <input type="date" id="date_from" name="date_from" value="{{ selected_date_from }}" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="flex-grow">
+                    <label for="date_to" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">To Date</label>
+                    <input type="date" id="date_to" name="date_to" value="{{ selected_date_to }}" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition shadow-sm mt-4">
+                    Filter
                 </button>
-                {% if selected_action %}
-                <a href="{% url 'dashboard_web:audit-log' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs px-3 py-2.5 rounded-lg transition">
-                    Clear Filter
+                {% if selected_action or selected_actor or selected_entity or selected_date_from or selected_date_to %}
+                <a href="{% url 'dashboard_web:audit-log' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs px-2.5 py-2 rounded-lg transition mt-4" title="Reset Filters">
+                    ✕
                 </a>
                 {% endif %}
             </div>
@@ -143,6 +169,25 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% if page_obj.has_other_pages %}
+            <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+                <div>
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} events total)
+                </div>
+                <div class="flex items-center gap-1">
+                    {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_actor %}&actor={{ selected_actor }}{% endif %}{% if selected_entity %}&entity_type={{ selected_entity }}{% endif %}{% if selected_date_from %}&date_from={{ selected_date_from }}{% endif %}{% if selected_date_to %}&date_to={{ selected_date_to }}{% endif %}" class="px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 transition">
+                        &larr; Previous
+                    </a>
+                    {% endif %}
+                    {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_actor %}&actor={{ selected_actor }}{% endif %}{% if selected_entity %}&entity_type={{ selected_entity }}{% endif %}{% if selected_date_from %}&date_from={{ selected_date_from }}{% endif %}{% if selected_date_to %}&date_to={{ selected_date_to }}{% endif %}" class="px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 transition">
+                        Next &rarr;
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% else %}
         <div class="p-12 text-center text-slate-400">

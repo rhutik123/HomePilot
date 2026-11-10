@@ -21,6 +21,33 @@ class AIExtractionConfigurationError(AIExtractionError):
     pass
 
 
+def _parse_flexible_date(raw_str: str) -> Optional[date]:
+    """Parses various date formats common in utility bills."""
+    if not raw_str:
+        return None
+    cleaned = raw_str.strip().replace("/", "-").replace(".", "-")
+    # Remove ordinal suffixes: 1st, 2nd, 3rd, 4th
+    cleaned = re.sub(r"(\d+)(?:st|nd|rd|th)", r"\1", cleaned, flags=re.IGNORECASE)
+    formats = [
+        "%Y-%m-%d",
+        "%d-%m-%Y",
+        "%d-%m-%y",
+        "%d %b %Y",
+        "%d %B %Y",
+        "%b %d %Y",
+        "%B %d %Y",
+        "%d-%b-%Y",
+        "%d-%B-%Y",
+        "%Y %b %d",
+    ]
+    for fmt in formats:
+        try:
+            return datetime.strptime(cleaned, fmt).date()
+        except Exception:
+            continue
+    return None
+
+
 class BaseExtractionProvider(ABC):
     """
     Abstract interface for bill information extraction providers.
@@ -61,29 +88,74 @@ class MockExtractionProvider(BaseExtractionProvider):
         consumer_account_number = None
         bill_number = None
 
-        # 1. Provider detection
+        # 1. Provider detection (Prioritize known Indian utility and telecom billers)
         provider_match = re.search(r"(?:provider|company|biller):\s*([^\n\r]+)", text, re.IGNORECASE)
+        lower_text = text.lower()
         if provider_match:
             provider_name = provider_match.group(1).strip()
-        elif "tata power" in text.lower():
+        elif "tata power" in lower_text:
             provider_name = "Tata Power"
             category = "ELECTRICITY"
-        elif "bses" in text.lower():
+        elif "bses rajdhani" in lower_text:
             provider_name = "BSES Rajdhani"
             category = "ELECTRICITY"
-        elif "airtel" in text.lower():
+        elif "bses yamuna" in lower_text:
+            provider_name = "BSES Yamuna"
+            category = "ELECTRICITY"
+        elif "bses" in lower_text:
+            provider_name = "BSES Rajdhani"
+            category = "ELECTRICITY"
+        elif "adani electricity" in lower_text or "adani power" in lower_text:
+            provider_name = "Adani Electricity"
+            category = "ELECTRICITY"
+        elif "bescom" in lower_text or "bangalore electricity" in lower_text:
+            provider_name = "BESCOM"
+            category = "ELECTRICITY"
+        elif "msedcl" in lower_text or "mahavitaran" in lower_text:
+            provider_name = "MSEDCL"
+            category = "ELECTRICITY"
+        elif "torrent power" in lower_text:
+            provider_name = "Torrent Power"
+            category = "ELECTRICITY"
+        elif "airtel" in lower_text:
             provider_name = "Airtel Broadband"
             category = "INTERNET"
-        elif "water" in text.lower():
+        elif "reliance jio" in lower_text or "jio fiber" in lower_text or "jio " in lower_text:
+            provider_name = "Jio Fiber"
+            category = "INTERNET"
+        elif "act fibernet" in lower_text or "act broadband" in lower_text:
+            provider_name = "ACT Fibernet"
+            category = "INTERNET"
+        elif "vodafone" in lower_text or "idea" in lower_text or "vi postpaid" in lower_text:
+            provider_name = "Vodafone Idea"
+            category = "MOBILE"
+        elif "indraprastha gas" in lower_text or "igl" in lower_text:
+            provider_name = "Indraprastha Gas (IGL)"
+            category = "GAS"
+        elif "mahanagar gas" in lower_text or "mgl" in lower_text:
+            provider_name = "Mahanagar Gas (MGL)"
+            category = "GAS"
+        elif "gujarat gas" in lower_text:
+            provider_name = "Gujarat Gas"
+            category = "GAS"
+        elif "bwssb" in lower_text or "bangalore water" in lower_text:
+            provider_name = "BWSSB"
+            category = "WATER"
+        elif "delhi jal board" in lower_text or "djb" in lower_text:
+            provider_name = "Delhi Jal Board"
+            category = "WATER"
+        elif "municipal water" in lower_text or "water board" in lower_text or "water" in lower_text:
             provider_name = "Municipal Water Board"
             category = "WATER"
-        elif "gas" in text.lower():
+        elif "gas" in lower_text:
             provider_name = "City Gas Distribution"
             category = "GAS"
+        elif "lic" in lower_text or "life insurance" in lower_text:
+            provider_name = "LIC of India"
+            category = "OTHER"
 
         # 2. Category fallback if not set
         if category == "OTHER":
-            lower_text = text.lower()
             if any(k in lower_text for k in ["electric", "power", "kwh", "meter"]):
                 category = "ELECTRICITY"
             elif any(k in lower_text for k in ["water", "sewer", "gallons", "liters"]):
@@ -95,43 +167,44 @@ class MockExtractionProvider(BaseExtractionProvider):
             elif any(k in lower_text for k in ["mobile", "cellular", "postpaid", "telecom"]):
                 category = "MOBILE"
 
-        # 3. Amount extraction
-        amount_match = re.search(r"(?:amount|total due|pay|rs\.?|inr|₹|\$)\s*[:=]?\s*(?:rs\.?|inr|₹|\$)?\s*([\d,]+\.?\d*)", text, re.IGNORECASE)
-        if amount_match:
-            raw_amt = amount_match.group(1).replace(",", "")
-            try:
-                parsed_amt = Decimal(raw_amt)
-                if parsed_amt > 0:
-                    amount = parsed_amt
-            except Exception:
-                pass
+        # 3. Robust Amount extraction (excludes strings like 'pay within 5 days' or '5%')
+        amount_patterns = [
+            r"(?:total\s*(?:amount\s*)?(?:due|payable)?|amount\s*payable|net\s*(?:amount\s*)?(?:payable|due)?|bill\s*amount|grand\s*total|gross\s*amount|balance\s*due)\s*[:=]?\s*(?:rs\.?|inr|₹|\$)?\s*([\d,]+\.?\d{0,2})(?!\s*(?:%|days?|units?|kw|kwh))",
+            r"(?:rs\.?|inr|₹|\$)\s*([\d,]+\.?\d{0,2})(?!\s*(?:%|days?|units?|kw|kwh))",
+            r"(?:amount|total)\s*[:=]\s*(?:rs\.?|inr|₹|\$)?\s*([\d,]+\.?\d{0,2})(?!\s*(?:%|days?|units?|kw|kwh))",
+        ]
+        for pattern in amount_patterns:
+            amt_match = re.search(pattern, text, re.IGNORECASE)
+            if amt_match:
+                raw_amt = amt_match.group(1).replace(",", "")
+                try:
+                    parsed_amt = Decimal(raw_amt)
+                    if parsed_amt > Decimal("0.00"):
+                        amount = parsed_amt
+                        break
+                except Exception:
+                    continue
 
-        # 4. Dates extraction (YYYY-MM-DD or DD-MM-YYYY or DD/MM/YYYY)
-        due_match = re.search(r"(?:due date|payment due|due by|pay by)\s*[:=]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})", text, re.IGNORECASE)
+        # 4. Dates extraction (Flexible date formats: ISO, DD-MM-YYYY, DD/MM/YYYY, DD Mon YYYY)
+        due_match = re.search(
+            r"(?:due\s*date|payment\s*due(?:\s*date)?|pay\s*by|due\s*by|last\s*date\s*for\s*payment)\s*[:=]?\s*(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|\d{1,2}-[A-Za-z]{3,9}-\d{4})",
+            text,
+            re.IGNORECASE,
+        )
         if due_match:
-            raw_date = due_match.group(1).replace("/", "-")
-            try:
-                if len(raw_date.split("-")[0]) == 4:
-                    due_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
-                else:
-                    due_date = datetime.strptime(raw_date, "%d-%m-%Y").date()
-            except Exception:
-                pass
+            due_date = _parse_flexible_date(due_match.group(1))
 
-        issue_match = re.search(r"(?:bill date|issue date|date of bill)\s*[:=]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})", text, re.IGNORECASE)
+        issue_match = re.search(
+            r"(?:bill\s*date|issue\s*date|date\s*of\s*bill|invoice\s*date)\s*[:=]?\s*(\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|\d{1,2}-[A-Za-z]{3,9}-\d{4})",
+            text,
+            re.IGNORECASE,
+        )
         if issue_match:
-            raw_issue = issue_match.group(1).replace("/", "-")
-            try:
-                if len(raw_issue.split("-")[0]) == 4:
-                    issue_date = datetime.strptime(raw_issue, "%Y-%m-%d").date()
-                else:
-                    issue_date = datetime.strptime(raw_issue, "%d-%m-%Y").date()
-            except Exception:
-                pass
+            issue_date = _parse_flexible_date(issue_match.group(1))
 
         # 5. Reference and account numbers
         ref_match = re.search(
-            r"(?:account|consumer|reference|invoice|bill)(?:\s*(?:no|num|number|#|id))?\s*[:=]\s*([A-Za-z0-9\-]+)",
+            r"(?:consumer\s*(?:no|number|id)|ca\s*no|account\s*(?:no|num|number|#|id)|k\s*no|invoice\s*(?:no|num|number|#)|bill\s*(?:no|num|number|#)|reference\s*(?:no|number))\s*[:=]\s*([A-Za-z0-9\-_/]+)",
             text,
             re.IGNORECASE,
         )
@@ -202,7 +275,8 @@ class GeminiExtractionProvider(BaseExtractionProvider):
             return res
 
         prompt = (
-            "You are an expert utility bill document parsing system for HomePilot. "
+            "You are an expert utility bill document parsing system for HomePilot, specialized in real-world Indian household bills "
+            "(Electricity, Water, Piped Natural Gas/LPG, Broadband/Fiber, Postpaid Mobile, Insurance, Maintenance).\n\n"
             "Analyze the following extracted bill document text and extract structured fields in JSON format.\n\n"
             "Strict Extraction Rules:\n"
             "1. Output ONLY valid JSON matching the schema below. No markdown backticks, no prose.\n"
@@ -210,8 +284,17 @@ class GeminiExtractionProvider(BaseExtractionProvider):
             "If a field cannot be definitively found, set its value to null.\n"
             "3. category MUST be one of: 'ELECTRICITY', 'WATER', 'GAS', 'INTERNET', 'MOBILE', 'OTHER'.\n"
             "4. Dates MUST use ISO 8601 format: 'YYYY-MM-DD'. If day/month cannot be determined, return null.\n"
-            "5. All monetary amounts must be numerical strings (e.g. '2450.00').\n"
-            "6. Provide a field_confidences object with a confidence score from 0.0 to 1.0 for each detected field.\n\n"
+            "5. Total Amount Due vs Arrears vs Current Charges:\n"
+            "   - 'total_amount': The net total payable amount by the standard due date (including any current charges and unpaid previous arrears).\n"
+            "   - 'previous_balance': Any past unpaid arrears or previous balance carried forward.\n"
+            "   - 'current_charges': Charges for the current billing cycle alone.\n"
+            "   - Do NOT confuse GST tax percentages (e.g., 5%, 18%) or discount percentages with the total bill amount.\n"
+            "   - If both 'Amount with rebate' and 'Amount after due date' are listed, use the standard payable amount by due date.\n"
+            "6. 'consumer_account_number': Consumer ID, CA Number, Customer No, Account No, or K-Number.\n"
+            "7. 'bill_number': Invoice Number, Bill Number, or Reference ID.\n"
+            "8. 'billing_period': Billing cycle description (e.g. '01-Oct-2026 to 31-Oct-2026') or null.\n"
+            "9. All monetary amounts must be numerical strings (e.g. '2450.00').\n"
+            "10. Provide a field_confidences object with a confidence score from 0.0 to 1.0 for each detected field.\n\n"
             "JSON Schema:\n"
             "{\n"
             '  "provider_name": string or null,\n'

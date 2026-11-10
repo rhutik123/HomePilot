@@ -259,7 +259,8 @@ class BillDocumentExtractAPIView(APIView):
             )
         except Exception as e:
             document.extraction_status = BillDocument.ExtractionStatus.FAILED
-            document.save(update_fields=["extraction_status"])
+            document.extracted_data = {"error": str(e)}
+            document.save(update_fields=["extraction_status", "extracted_data"])
             AuditService.log(
                 action=AuditEvent.Action.EXTRACTION_FAILED,
                 actor=request.user,
